@@ -1,0 +1,38 @@
+FROM jenkins/inbound-agent:latest-jdk17
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    wget \
+    git \
+    unzip \
+    jq \
+    kubectl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://get.docker.com | sh \
+    && usermod -aG docker jenkins
+
+RUN curl -fsSL https://storage.googleapis.com/sonarqube-scanner/archive/sonar-scanner-cli-5.0.1.3006-linux.zip -o /tmp/sonar.zip \
+    && unzip /tmp/sonar.zip -d /opt/ \
+    && ln -s /opt/sonar-scanner-5.0.1.3006-linux/bin/sonar-scanner /usr/local/bin/sonar-scanner \
+    && rm /tmp/sonar.zip
+
+RUN wget -q https://github.com/mikefarah/yq/releases/download/v4.35.2/yq_linux_amd64 -O /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq \
+    && wget -q https://get.helm.sh/helm-v3.13.3-linux-amd64.tar.gz -O /tmp/helm.tar.gz \
+    && tar -xzf /tmp/helm.tar.gz -C /tmp \
+    && mv /tmp/linux-amd64/helm /usr/local/bin/helm \
+    && rm -rf /tmp/helm.tar.gz /tmp/linux-amd64
+
+RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
+    && echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list \
+    && apt-get update \
+    && apt-get install -y kubectl \
+    && rm -rf /var/lib/apt/lists/*
+
+USER jenkins
+
+ENV DOCKER_HOST=tcp://dind:2375 \
+    SONAR_HOST_URL=http://sonarqube:9000

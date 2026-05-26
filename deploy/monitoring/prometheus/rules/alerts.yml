@@ -1,0 +1,103 @@
+groups:
+  - name: seckill-app-alerts
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_server_requests_seconds_count{status=~"5.."}[5m]) / rate(http_server_requests_seconds_count[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High error rate detected on {{ $labels.pod }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on pod {{ $labels.pod }} (namespace: {{ $labels.namespace }})"
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{uri="/api/v1/seckill/execute"}[5m])) > 1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P99 response time > 1s for seckill API"
+          description: "Seckill API P99 latency is {{ $value }}s on pod {{ $labels.pod }}"
+
+      - alert: ServiceDown
+        expr: up{job="seckill-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.pod }} is down"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been down for more than 1 minute"
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_usage[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.pod }}"
+          description: "CPU usage is {{ $value }}% on pod {{ $labels.pod }}"
+
+      - alert: HighMemoryUsage
+        expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High heap memory usage on {{ $labels.pod }}"
+          description: "JVM heap usage is {{ $value }}% on pod {{ $labels.pod }}"
+
+      - alert: SlowSQL
+        expr: rate(hikari_ActiveConnections[5m]) > 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HikariCP active connections"
+          description: "Active connections: {{ $value }} on pod {{ $labels.pod }}"
+
+      - alert: KafkaConsumerLag
+        expr: sum(kafka_consumergroup_lag) by (consumergroup, topic) > 10000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag > 10000"
+          description: "Consumer group {{ $labels.consumergroup }} has {{ $value }} lag on topic {{ $labels.topic }}"
+
+      - alert: RedisMemoryHigh
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage > 80%"
+          description: "Redis memory usage is {{ $value }}%"
+
+      - alert: GCSpike
+        expr: rate(jvm_gc_collection_seconds_sum[5m]) / rate(jvm_gc_collection_seconds_count[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GC pause time spike"
+          description: "Average GC pause > 500ms on pod {{ $labels.pod }}"
+
+      - alert: PodRestartingFrequently
+        expr: rate(kube_pod_container_status_restarts_total{namespace="seckill"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} is restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 20
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk usage on {{ $labels.instance }} is over 80%"

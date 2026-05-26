@@ -1,0 +1,421 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seckill-app
+  namespace: seckill
+  labels:
+    app: seckill-app
+    version: v1
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/actuator/prometheus"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: seckill-app
+  template:
+    metadata:
+      labels:
+        app: seckill-app
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-secret
+      serviceAccountName: seckill-app-sa
+      terminationGracePeriodSeconds: 60
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - seckill-app
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: seckill-app
+      containers:
+        - name: seckill-app
+          image: ${DOCKER_REGISTRY}/seckill-app:${APP_VERSION}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: im-tcp
+              containerPort: 9999
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: JAVA_OPTS
+              value: >-
+                -Xms2048m -Xmx4096m
+                -XX:+UseG1GC
+                -XX:MaxGCPauseMillis=200
+                -XX:ParallelGCThreads=4
+                -XX:ConcGCThreads=2
+                -XX:InitiatingHeapOccupancyPercent=45
+                -XX:+HeapDumpOnOutOfMemoryError
+                -XX:HeapDumpPath=/app/logs/heapdump-$(POD_NAME).hprof
+                -XX:+ExitOnOutOfMemoryError
+                -Djava.security.egd=file:/dev/./urandom
+                -Dfile.encoding=UTF-8
+                -Duser.timezone=Asia/Shanghai
+                -javaagent:/app/agent/jmx_prometheus_javaagent-0.20.0.jar=9404:/app/agent/config.yaml
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-db-secret
+                  key: mysql-url
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-db-secret
+                  key: mysql-user
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-db-secret
+                  key: mysql-password
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-redis-secret
+                  key: redis-password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-jwt-secret
+                  key: jwt-secret
+          envFrom:
+            - configMapRef:
+                name: seckill-app-config
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "6Gi"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 90
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "Draining connections..."
+                    sleep 30
+                    echo "Shutdown complete"
+          volumeMounts:
+            - name: app-logs
+              mountPath: /app/logs
+            - name: app-config
+              mountPath: /app/config
+              readOnly: true
+            - name: jmx-agent
+              mountPath: /app/agent
+              readOnly: true
+      volumes:
+        - name: app-logs
+          emptyDir: {}
+        - name: app-config
+          configMap:
+            name: seckill-app-config
+            items:
+              - key: application-prod.yml
+                path: application-prod.yml
+        - name: jmx-agent
+          configMap:
+            name: jmx-prometheus-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+      initContainers:
+        - name: download-jmx-agent
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              if [ ! -f /app/agent/jmx_prometheus_javaagent-0.20.0.jar ]; then
+                wget -q -O /app/agent/jmx_prometheus_javaagent-0.20.0.jar \
+                  https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.20.0/jmx_prometheus_javaagent-0.20.0.jar
+              fi
+          volumeMounts:
+            - name: jmx-agent
+              mountPath: /app/agent
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jmx-prometheus-config
+  namespace: seckill
+data:
+  config.yaml: |
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    rules:
+      - pattern: "java.lang<type=Memory><>(HeapMemoryUsage|NonHeapMemoryUsage).(committed|used|max)"
+        name: jvm_memory_$2_$1
+      - pattern: "java.lang<type=GarbageCollector, name=(.*)><>(CollectionCount|CollectionTime)"
+        name: jvm_gc_$2_$1
+      - pattern: "java.lang<type=Threading><>(ThreadCount|DaemonThreadCount|PeakThreadCount)"
+        name: jvm_threads_$1
+      - pattern: "java.lang<type=OperatingSystem><>(SystemCpuLoad|ProcessCpuLoad)"
+        name: jvm_cpu_$1
+      - pattern: "java.lang<type=Runtime><>(Uptime)"
+        name: jvm_uptime
+      - pattern: "Tomcat<type=GlobalRequestProcessor, name=\"(.*)\"><>(requestCount|errorCount|processingTime|bytesReceived|bytesSent)"
+        name: tomcat_$2_$1
+      - pattern: "HikariPool-(.*)<type=PoolStats, pool=HikariPool-(.*)><>(ActiveConnections|IdleConnections|TotalConnections|PendingConnections|ThreadsAwaitingConnection)"
+        name: hikari_$3_
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: seckill
+spec:
+  serviceName: redis-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          command:
+            - redis-server
+            - /usr/local/etc/redis/redis.conf
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-redis-secret
+                  key: redis-password
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "6Gi"
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          volumeMounts:
+            - name: redis-config
+              mountPath: /usr/local/etc/redis/redis.conf
+              subPath: redis.conf
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-config
+          configMap:
+            name: redis-config
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ssd
+        resources:
+          requests:
+            storage: 100Gi
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: seckill
+spec:
+  serviceName: mysql-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0.35
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-db-secret
+                  key: mysql-root-password
+            - name: MYSQL_DATABASE
+              value: "user_system"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-db-secret
+                  key: mysql-user
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seckill-db-secret
+                  key: mysql-password
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+            - --max_connections=2000
+            - --innodb_buffer_pool_size=4G
+            - --innodb_log_file_size=512M
+            - --innodb_flush_log_at_trx_commit=2
+            - --sync_binlog=1000
+            - --innodb_io_capacity=2000
+            - --innodb_io_capacity_max=4000
+            - --slow_query_log=1
+            - --long_query_time=0.5
+            - --slow_query_log_file=/var/log/mysql/slow.log
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - mysql
+                - -h
+                - localhost
+                - -e
+                - "SELECT 1"
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: mysql-init
+          configMap:
+            name: mysql-init-sql
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ssd
+        resources:
+          requests:
+            storage: 500Gi
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-sql
+  namespace: seckill
+data:
+  01-init.sql: |
+    CREATE DATABASE IF NOT EXISTS user_system DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER IF NOT EXISTS 'seckill'@'%' IDENTIFIED BY 'SeckillDB2024!';
+    GRANT ALL PRIVILEGES ON user_system.* TO 'seckill'@'%';
+    FLUSH PRIVILEGES;
