@@ -136,6 +136,13 @@ public class SeckillController {
             return Result.fail("订单状态不正确");
         }
 
+        SeckillProduct product = seckillProductMapper.selectOneById(order.getSeckillId());
+        if (product == null || product.getStatus() == 2) {
+            order.setStatus(2);
+            seckillOrderMapper.update(order);
+            return Result.fail("秒杀活动已结束，订单已自动取消");
+        }
+
         order.setStatus(1);
         order.setPayTime(java.time.LocalDateTime.now());
         seckillOrderMapper.update(order);

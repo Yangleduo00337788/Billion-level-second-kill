@@ -2,7 +2,7 @@ import request from '../utils/request'
 
 export function getUserList(params = {}) {
   return request({
-    url: '/api/users/list',
+    url: '/users/list',
     method: 'get',
     params
   })
@@ -10,7 +10,7 @@ export function getUserList(params = {}) {
 
 export function updateUserStatus(userId, status) {
   return request({
-    url: `/api/users/${userId}/status`,
+    url: `/users/${userId}/status`,
     method: 'put',
     params: { status }
   })
@@ -18,14 +18,14 @@ export function updateUserStatus(userId, status) {
 
 export function deleteUser(userId) {
   return request({
-    url: `/api/users/${userId}`,
+    url: `/users/${userId}`,
     method: 'delete'
   })
 }
 
 export function lockUser(userId, lockMinutes = 30) {
   return request({
-    url: `/api/users/${userId}/lock`,
+    url: `/users/${userId}/lock`,
     method: 'post',
     params: { lockMinutes }
   })
@@ -33,7 +33,7 @@ export function lockUser(userId, lockMinutes = 30) {
 
 export function resetPassword(userId, newPassword) {
   return request({
-    url: `/api/users/${userId}/password`,
+    url: `/users/${userId}/password`,
     method: 'put',
     params: { newPassword }
   })
@@ -41,14 +41,14 @@ export function resetPassword(userId, newPassword) {
 
 export function getRoleList() {
   return request({
-    url: '/api/roles/list',
+    url: '/roles/list',
     method: 'get'
   })
 }
 
 export function createRole(data) {
   return request({
-    url: '/api/roles',
+    url: '/roles',
     method: 'post',
     data
   })
@@ -56,7 +56,7 @@ export function createRole(data) {
 
 export function updateRole(roleId, data) {
   return request({
-    url: `/api/roles/${roleId}`,
+    url: `/roles/${roleId}`,
     method: 'put',
     data
   })
@@ -64,7 +64,7 @@ export function updateRole(roleId, data) {
 
 export function deleteRole(roleId) {
   return request({
-    url: `/api/roles/${roleId}`,
+    url: `/roles/${roleId}`,
     method: 'delete'
   })
 }
