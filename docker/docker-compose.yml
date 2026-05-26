@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ie-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: inference_engine
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ie-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ie-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ie-network
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: ie-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - ie-network
+
+  minio:
+    image: minio/minio
+    container_name: ie-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    networks:
+      - ie-network
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: ie-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+      - elasticsearch
+      - minio
+    volumes:
+      - ../backend/config.yaml:/app/config.yaml
+    networks:
+      - ie-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    container_name: ie-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - ie-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+  es_data:
+  minio_data:
+
+networks:
+  ie-network:
+    driver: bridge

@@ -1,0 +1,9 @@
+uploads/
+.env
+config.yaml
+config.yaml.example
+*.exe
+*.test
+*.out
+tmp/
+testdata/
