@@ -1,7 +1,6 @@
 package com.seckill.usersystem.controller;
 
 import com.seckill.usersystem.dto.LoginRequest;
-import com.seckill.usersystem.dto.OAuthLoginRequest;
 import com.seckill.usersystem.dto.RefreshTokenRequest;
 import com.seckill.usersystem.dto.RegisterRequest;
 import com.seckill.usersystem.service.IUserService;
@@ -44,11 +43,5 @@ public class AuthController {
     @PostMapping("/refresh-token")
     public Result<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         return Result.success(userService.refreshToken(request.getRefreshToken(), request.getDeviceId()));
-    }
-
-    @Operation(summary = "OAuth登录")
-    @PostMapping("/oauth/login")
-    public Result<LoginResultVO> oauthLogin(@Valid @RequestBody OAuthLoginRequest request) {
-        return Result.success();
     }
 }

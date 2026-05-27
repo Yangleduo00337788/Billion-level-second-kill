@@ -280,7 +280,7 @@ onMounted(() => {
 }
 
 .cart-item.selected {
-  background: #FFF5F0;
+  background: #FFF0E6;
 }
 
 .cart-item:last-child {
@@ -535,7 +535,7 @@ onMounted(() => {
 
 .checkout-btn {
   padding: 16px 40px;
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   border: none;
   border-radius: 8px;
   font-size: 16px;
@@ -579,7 +579,7 @@ onMounted(() => {
 
 .go-shopping {
   padding: 12px 32px;
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   border-radius: 8px;
   color: #fff;
   font-size: 14px;

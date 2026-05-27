@@ -3,24 +3,14 @@
     <div class="home-page">
       <div class="main-layout">
         <aside class="left-sidebar">
-          <div class="sidebar-card announcement-card">
-            <div class="card-header">
-              <div class="header-icon">
+          <div class="sidebar-section">
+            <h3 class="sidebar-title">商品分类</h3>
+            <div class="menu-list">
+              <div class="menu-item" v-for="(cat, index) in menuCategories" :key="index" @click="handleMenuClick(cat)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  <path :d="cat.icon"/>
                 </svg>
-              </div>
-              <h3>活动公告</h3>
-            </div>
-            <div class="announcement-list">
-              <div class="announcement-item" v-for="(item, index) in announcements" :key="index">
-                <div class="announcement-tag" :class="item.type">{{ item.tag }}</div>
-                <div class="announcement-content">
-                  <h4>{{ item.title }}</h4>
-                  <p>{{ item.desc }}</p>
-                  <span class="announcement-time">{{ item.time }}</span>
-                </div>
+                <span>{{ cat.name }}</span>
               </div>
             </div>
           </div>
@@ -30,62 +20,40 @@
           <section class="banner-section">
             <div class="banner-carousel" @mouseenter="pauseAutoPlay" @mouseleave="resumeAutoPlay">
               <div class="carousel-wrapper">
-                <div 
-                  class="carousel-slide"
-                  :class="{ active: currentSlide === 0 }"
-                >
-                  <div class="slide-content slide-1">
+                <div class="carousel-slide" :class="{ active: currentSlide === 0 }">
+                  <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=e-commerce%20fashion%20sale%20banner%20with%20summer%20clothing%20models%20colorful%20modern%20design&image_size=landscape_16_9" alt="618抢先购" class="slide-img" />
+                  <div class="slide-overlay">
+                    <div class="slide-tag">618抢先购</div>
                     <div class="slide-text">
-                      <h2>限时秒杀</h2>
-                      <p>全场低至1折起</p>
-                      <router-link to="/seckill" class="slide-btn">立即抢购</router-link>
+                      <h2>服饰时尚</h2>
+                      <p>叠券低至7.3折起</p>
                     </div>
                   </div>
                 </div>
-                <div 
-                  class="carousel-slide"
-                  :class="{ active: currentSlide === 1 }"
-                >
-                  <div class="slide-content slide-2">
+                <div class="carousel-slide" :class="{ active: currentSlide === 1 }">
+                  <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=technology%20digital%20products%20sale%20banner%20smartphone%20laptop%20gadgets%20blue%20purple%20gradient&image_size=landscape_16_9" alt="数码潮品" class="slide-img" />
+                  <div class="slide-overlay">
+                    <div class="slide-tag">新品首发</div>
                     <div class="slide-text">
-                      <h2>新品首发</h2>
-                      <p>最新数码产品抢先体验</p>
-                      <router-link to="/seckill" class="slide-btn">查看详情</router-link>
+                      <h2>数码潮品</h2>
+                      <p>最新科技抢先体验</p>
                     </div>
                   </div>
                 </div>
-                <div 
-                  class="carousel-slide"
-                  :class="{ active: currentSlide === 2 }"
-                >
-                  <div class="slide-content slide-3">
+                <div class="carousel-slide" :class="{ active: currentSlide === 2 }">
+                  <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=quality%20guaranteed%20products%20banner%20premium%20goods%20shopping%20green%20fresh&image_size=landscape_16_9" alt="正品好货" class="slide-img" />
+                  <div class="slide-overlay">
+                    <div class="slide-tag">品质保障</div>
                     <div class="slide-text">
-                      <h2>品质保障</h2>
-                      <p>正品保证 七天无忧退换</p>
-                      <router-link to="/seckill" class="slide-btn">了解更多</router-link>
+                      <h2>正品好货</h2>
+                      <p>全场正品保证 七天无忧退换</p>
                     </div>
                   </div>
                 </div>
               </div>
               <div class="carousel-indicators">
-                <button 
-                  v-for="(_, index) in 3"
-                  :key="index"
-                  class="indicator"
-                  :class="{ active: currentSlide === index }"
-                  @click="goToSlide(index)"
-                ></button>
+                <button v-for="(_, index) in 3" :key="index" class="indicator" :class="{ active: currentSlide === index }" @click="goToSlide(index)"></button>
               </div>
-              <button class="carousel-arrow prev" @click="prevSlide">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="15 18 9 12 15 6"/>
-                </svg>
-              </button>
-              <button class="carousel-arrow next" @click="nextSlide">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </button>
             </div>
           </section>
 
@@ -93,9 +61,7 @@
             <div class="section-header">
               <div class="header-left">
                 <div class="section-icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                 </div>
                 <h2 class="section-title">限时秒杀</h2>
                 <span class="section-badge">HOT</span>
@@ -113,13 +79,10 @@
                 </div>
                 <router-link to="/seckill" class="header-link">
                   查看全部
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="9 18 15 12 9 6"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                 </router-link>
               </div>
             </div>
-            
             <div class="seckill-grid" v-loading="loading">
               <ProductCard
                 v-for="product in seckillProducts.slice(0, 4)"
@@ -129,7 +92,6 @@
                 @buy="handleSeckill"
                 @click="goProductDetail"
               />
-              
               <div v-if="!loading && seckillProducts.length === 0" class="empty-state">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <circle cx="12" cy="12" r="10"/>
@@ -142,118 +104,84 @@
               </div>
             </div>
           </section>
-
-          <section class="category-section">
-            <div class="section-header">
-              <h2 class="section-title">商品分类</h2>
-            </div>
-            <div class="category-grid">
-              <div 
-                v-for="cat in categories" 
-                :key="cat.id"
-                class="category-item"
-                @click="goCategory(cat.id)"
-              >
-                <div class="category-icon" :style="{ background: cat.color }">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path :d="cat.icon"/>
-                  </svg>
-                </div>
-                <span class="category-name">{{ cat.name }}</span>
-                <span class="category-count">{{ getCategoryCount(cat.id) }}件</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="features-section">
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
-                </div>
-                <h3>正品保障</h3>
-                <p>100%正品承诺</p>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="1" y="3" width="15" height="13"/>
-                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
-                    <circle cx="5.5" cy="18.5" r="2.5"/>
-                    <circle cx="18.5" cy="18.5" r="2.5"/>
-                  </svg>
-                </div>
-                <h3>极速发货</h3>
-                <p>24小时内发货</p>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                    <polyline points="22,6 12,13 2,6"/>
-                  </svg>
-                </div>
-                <h3>七天退换</h3>
-                <p>不满意可退换</p>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                </div>
-                <h3>专业客服</h3>
-                <p>7x24在线服务</p>
-              </div>
-            </div>
-          </section>
         </div>
 
         <aside class="right-sidebar">
-          <div class="sidebar-card hot-rank-card">
-            <div class="card-header">
-              <div class="header-icon hot">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
+          <div class="activity-cards">
+            <div class="activity-card card-red" @click="$router.push('/seckill')">
+              <div class="card-text">
+                <h4>618淘宝下单</h4>
+                <p>赢华为平板</p>
               </div>
-              <h3>热销榜单</h3>
-              <span class="rank-badge">TOP 10</span>
+              <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=huawei%20tablet%20computer%20product%20icon%20minimal&image_size=square_hd" alt="" class="card-img" />
             </div>
-            <div class="rank-list">
-              <div 
-                class="rank-item" 
-                v-for="(product, index) in hotProducts" 
-                :key="product.id"
-                @click="goProductDetail(product)"
-              >
-                <div class="rank-number" :class="{ top3: index < 3 }">{{ index + 1 }}</div>
-                <div class="rank-product-image">
-                  <img :src="product.productImage || product.image" alt="" />
-                </div>
-                <div class="rank-product-info">
-                  <h4 class="rank-product-name">{{ product.productName || product.name }}</h4>
-                  <div class="rank-product-price">
-                    <span class="current-price">¥{{ product.seckillPrice }}</span>
-                    <span class="original-price">¥{{ product.originalPrice }}</span>
-                  </div>
-                  <div class="rank-sales">已售 {{ product.soldCount || Math.floor(Math.random() * 1000) }}件</div>
-                </div>
+            <div class="activity-card card-orange" @click="$router.push('/seckill')">
+              <div class="card-text">
+                <h4>iPhone17pro</h4>
+                <p>直降千元 领300元券</p>
               </div>
+              <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=smartphone%20iPhone%20product%20icon%20minimal%20white&image_size=square_hd" alt="" class="card-img" />
+            </div>
+            <div class="activity-card card-pink" @click="$router.push('/seckill')">
+              <div class="card-text">
+                <h4>酷暑来袭</h4>
+                <p>升温爆款5折起</p>
+              </div>
+              <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=summer%20cooling%20products%20ice%20cream%20fan%20icon%20minimal&image_size=square_hd" alt="" class="card-img" />
+            </div>
+            <div class="activity-card card-yellow" @click="$router.push('/seckill')">
+              <div class="card-text">
+                <h4>运动户外</h4>
+                <p>尖货爆款直降</p>
+              </div>
+              <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=sports%20outdoor%20running%20shoes%20product%20icon%20minimal&image_size=square_hd" alt="" class="card-img" />
             </div>
           </div>
         </aside>
       </div>
+
+      <section class="recommend-section">
+        <div class="recommend-header">
+          <div class="header-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </div>
+          <div class="header-text">
+            <h3>猜你喜欢</h3>
+            <p>精选好物推荐</p>
+          </div>
+        </div>
+        <div class="recommend-grid">
+          <div class="recommend-item" v-for="(product, index) in recommendProducts" :key="index" @click="goProductDetail(product)">
+            <div class="rec-image">
+              <img v-if="product.mainImage" :src="product.mainImage" :alt="product.productName" />
+              <div v-else class="rec-img-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+              </div>
+            </div>
+            <div class="rec-info">
+              <h4 class="rec-title">{{ product.productName || `精选商品 #${product.id}` }}</h4>
+              <div class="rec-price">
+                <span class="rec-current">¥{{ product.seckillPrice || product.price }}</span>
+                <span class="rec-original" v-if="product.originalPrice">¥{{ product.originalPrice }}</span>
+              </div>
+              <div class="rec-tags">
+                <span class="rec-tag" v-if="product.soldCount > 100">热卖</span>
+                <span class="rec-tag red" v-if="product.status === 1">秒杀中</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </Layout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Layout from '../components/Layout.vue'
@@ -264,8 +192,7 @@ const router = useRouter()
 
 const loading = ref(false)
 const seckillProducts = ref([])
-const hotProducts = ref([])
-const categories = ref([])
+const recommendProducts = ref([])
 const currentSlide = ref(0)
 const currentSeckillProduct = ref(null)
 
@@ -277,59 +204,26 @@ const countdownLabel = ref('距结束')
 let slideTimer = null
 let countdownTimer = null
 
-const announcements = ref([
-  { tag: '限时', type: 'hot', title: '618年中大促即将开启', desc: '全场商品低至5折，更有神秘惊喜等你来抢', time: '2024-06-18' },
-  { tag: '新品', type: 'new', title: '新款手机首发预约', desc: '预约享专属优惠，首发限量抢购', time: '2024-05-20' },
-  { tag: '公告', type: 'normal', title: '平台服务升级通知', desc: '物流配送全面升级，极速送达更便捷', time: '2024-05-15' },
-  { tag: '活动', type: 'event', title: '新人专享礼包', desc: '注册即送优惠券，首单立减50元', time: '长期有效' },
-])
-
-const defaultCategories = [
-  { id: 1, name: '手机数码', icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z', color: '#FF5000' },
-  { id: 2, name: '电脑办公', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', color: '#1677FF' },
-  { id: 3, name: '家用电器', icon: 'M13 10V3L4 14h7v7l9-11h-7z', color: '#52C41A' },
-  { id: 4, name: '服装鞋包', icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', color: '#FAAD14' },
+const menuCategories = [
+  { name: '618现货抢先购 / 大牌5折起', icon: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z', keyword: '618' },
+  { name: '电脑 / 配件 / 办公 / 文具', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', keyword: '电脑' },
+  { name: '工业品 / 商业 / 农业 / 定制', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', keyword: '工业品' },
+  { name: '家电 / 手机 / 通信 / 数码', icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z', keyword: '手机' },
+  { name: '家具 / 家装 / 家居 / 厨具', icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', keyword: '家具' },
+  { name: '女装 / 男装 / 内衣 / 配饰', icon: 'M16 11V7a4 4 0 0 0-8 0v4M5 9h14l1 12H4L5 9z', keyword: '女装' },
+  { name: '女鞋 / 男鞋 / 运动 / 户外', icon: 'M22 12h-4l-3 9L9 3l-3 9H2', keyword: '运动鞋' },
+  { name: '汽车 / 珠宝 / 文玩 / 箱包', icon: 'M5 18v3M10 18v3M15 18v3M20 18v3M3 12h18M5 12l2-7h10l2 7', keyword: '汽车' },
+  { name: '食品 / 鲜花 / 酒水 / 健康', icon: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 16a1 1 0 1 1 1-1 1 1 0 0 1-1 1zm1-5h-2V7h2z', keyword: '食品' },
+  { name: '母婴 / 童装 / 玩具 / 宠物', icon: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 16a1 1 0 1 1 1-1 1 1 0 0 1-1 1zm1-5h-2V7h2z', keyword: '母婴' },
+  { name: '美妆 / 个护 / 娱乐 / 图书', icon: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z', keyword: '美妆' },
 ]
-
-function getCategoryCount(catId) {
-  return seckillProducts.value.filter(p => p.categoryId === catId).length || 0
-}
 
 async function loadProducts() {
   loading.value = true
   try {
     const res = await getSeckillProducts()
     seckillProducts.value = res.data || []
-    
-    hotProducts.value = [...seckillProducts.value]
-      .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
-      .slice(0, 10)
-    
-    const categoryMap = new Map()
-    seckillProducts.value.forEach(p => {
-      if (p.categoryId && p.categoryName) {
-        categoryMap.set(p.categoryId, p.categoryName)
-      }
-    })
-    
-    const colors = ['#FF5000', '#1677FF', '#52C41A', '#FAAD14', '#EB2F96', '#13C2C2']
-    const icons = defaultCategories.map(c => c.icon)
-    
-    if (categoryMap.size > 0) {
-      let idx = 0
-      categoryMap.forEach((name, id) => {
-        categories.value.push({
-          id,
-          name,
-          color: colors[idx % colors.length],
-          icon: icons[idx % icons.length]
-        })
-        idx++
-      })
-    } else {
-      categories.value = defaultCategories
-    }
-    
+    recommendProducts.value = [...seckillProducts.value].sort(() => Math.random() - 0.5).slice(0, 10)
     const activeProducts = seckillProducts.value.filter(p => p.status === 1)
     if (activeProducts.length > 0) {
       currentSeckillProduct.value = activeProducts[0]
@@ -340,11 +234,9 @@ async function loadProducts() {
         countdownLabel.value = '距开始'
       }
     }
-    
     updateCountdown()
   } catch (error) {
     console.error('加载商品失败', error)
-    categories.value = defaultCategories
   } finally {
     loading.value = false
   }
@@ -352,11 +244,9 @@ async function loadProducts() {
 
 function updateCountdown() {
   if (!currentSeckillProduct.value) return
-  
   const now = new Date()
   const product = currentSeckillProduct.value
   let targetTime
-  
   if (product.status === 1) {
     countdownLabel.value = '距结束'
     targetTime = new Date(product.endTime)
@@ -369,7 +259,6 @@ function updateCountdown() {
     countdownSeconds.value = '00'
     return
   }
-  
   const diff = Math.max(0, Math.floor((targetTime - now) / 1000))
   countdownHours.value = Math.floor(diff / 3600).toString().padStart(2, '0')
   countdownMinutes.value = Math.floor((diff % 3600) / 60).toString().padStart(2, '0')
@@ -378,10 +267,6 @@ function updateCountdown() {
 
 function nextSlide() {
   currentSlide.value = (currentSlide.value + 1) % 3
-}
-
-function prevSlide() {
-  currentSlide.value = (currentSlide.value - 1 + 3) % 3
 }
 
 function goToSlide(index) {
@@ -401,12 +286,10 @@ async function handleSeckill(product) {
     ElMessage.info('已设置秒杀提醒')
     return
   }
-  
   if (product.seckillStock <= 0) {
     ElMessage.warning('商品已售罄')
     return
   }
-  
   try {
     await ElMessageBox.confirm('确定要抢购该商品吗？每位用户仅有一次秒杀资格！', '抢购确认', {
       confirmButtonText: '立即抢购',
@@ -414,7 +297,6 @@ async function handleSeckill(product) {
       type: 'warning'
     })
   } catch { return }
-  
   try {
     ElMessage.info('正在抢购中...')
     const res = await executeSeckill(product.id)
@@ -441,8 +323,10 @@ function goProductDetail(product) {
   router.push(`/product/${product.id}?type=seckill`)
 }
 
-function goCategory(catId) {
-  router.push({ path: '/seckill', query: { category: catId } })
+function handleMenuClick(cat) {
+  if (cat.keyword) {
+    router.push({ path: '/seckill', query: { keyword: cat.keyword } })
+  }
 }
 
 onMounted(() => {
@@ -459,23 +343,67 @@ onUnmounted(() => {
 
 <style scoped>
 .home-page {
-  padding: 20px;
+  padding: 0;
 }
 
 .main-layout {
   display: flex;
-  gap: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+  gap: 12px;
+  max-width: 100%;
+  margin: 12px auto 0;
+  padding: 0 60px;
 }
 
 .left-sidebar {
-  width: 200px;
+  width: 240px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.right-sidebar {
-  width: 280px;
+.sidebar-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.sidebar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #FF5000;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.menu-item:hover {
+  background: #FFF0E6;
+  color: #FF5000;
+}
+
+.menu-item svg {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
@@ -484,234 +412,19 @@ onUnmounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-.sidebar-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.header-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #FF5000, #FF3400);
-  color: #fff;
-}
-
-.header-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.header-icon.hot {
-  background: linear-gradient(135deg, #FAAD14, #D48806);
-}
-
-.card-header h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-}
-
-.rank-badge {
-  background: linear-gradient(135deg, #FAAD14, #D48806);
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.announcement-list {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
-}
-
-.announcement-item {
-  display: flex;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 8px;
-  background: #f9f9f9;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.announcement-item:hover {
-  background: #f5f5f5;
-}
-
-.announcement-tag {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.announcement-tag.hot {
-  background: linear-gradient(135deg, #FF5000, #FF3400);
-  color: #fff;
-}
-
-.announcement-tag.new {
-  background: linear-gradient(135deg, #1677FF, #0052CC);
-  color: #fff;
-}
-
-.announcement-tag.event {
-  background: linear-gradient(135deg, #52C41A, #237804);
-  color: #fff;
-}
-
-.announcement-tag.normal {
-  background: #f0f0f0;
-  color: #666;
-}
-
-.announcement-content {
-  flex: 1;
-}
-
-.announcement-content h4 {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  margin: 0 0 4px;
-  line-height: 1.3;
-}
-
-.announcement-content p {
-  font-size: 12px;
-  color: #666;
-  margin: 0 0 4px;
-  line-height: 1.4;
-}
-
-.announcement-time {
-  font-size: 11px;
-  color: #999;
-}
-
-.rank-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rank-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 8px;
-  background: #f9f9f9;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.rank-item:hover {
-  background: #f5f5f5;
-  transform: translateX(4px);
-}
-
-.rank-number {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: #999;
-  background: #f0f0f0;
-}
-
-.rank-number.top3 {
-  background: linear-gradient(135deg, #FF5000, #FF3400);
-  color: #fff;
-}
-
-.rank-product-image {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f5f5f5;
-}
-
-.rank-product-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.rank-product-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.rank-product-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #333;
-  margin: 0 0 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rank-product-price {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.current-price {
-  font-size: 14px;
-  font-weight: 700;
-  color: #FF5000;
-}
-
-.original-price {
-  font-size: 12px;
-  color: #999;
-  text-decoration: line-through;
-}
-
-.rank-sales {
-  font-size: 11px;
-  color: #999;
 }
 
 .banner-section {
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .banner-carousel {
   position: relative;
-  height: 300px;
+  height: 340px;
 }
 
 .carousel-wrapper {
@@ -733,142 +446,99 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-.slide-content {
+.slide-img {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: cover;
 }
 
-.slide-1 {
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+.slide-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px 32px 24px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.6));
 }
 
-.slide-2 {
-  background: linear-gradient(135deg, #1677FF, #0052CC);
-}
-
-.slide-3 {
-  background: linear-gradient(135deg, #52C41A, #237804);
+.slide-tag {
+  display: inline-block;
+  background: #FF5000;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .slide-text {
-  text-align: center;
   color: #fff;
 }
 
 .slide-text h2 {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0 0 4px;
 }
 
 .slide-text p {
-  font-size: 18px;
-  margin: 0 0 24px;
-  opacity: 0.9;
-}
-
-.slide-btn {
-  display: inline-block;
-  padding: 12px 32px;
-  background: #fff;
-  color: #FF5000;
-  border-radius: 24px;
   font-size: 16px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s;
-}
-
-.slide-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  margin: 0;
+  opacity: 0.9;
 }
 
 .carousel-indicators {
   position: absolute;
-  bottom: 20px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  z-index: 2;
 }
 
 .indicator {
-  width: 24px;
-  height: 4px;
+  width: 8px;
+  height: 8px;
   background: rgba(255,255,255,0.5);
   border: none;
-  border-radius: 2px;
+  border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .indicator.active {
   background: #fff;
-  width: 32px;
-}
-
-.carousel-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  background: rgba(255,255,255,0.3);
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.carousel-arrow:hover {
-  background: rgba(255,255,255,0.5);
-}
-
-.carousel-arrow.prev {
-  left: 20px;
-}
-
-.carousel-arrow.next {
-  right: 20px;
-}
-
-.carousel-arrow svg {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  border-radius: 4px;
 }
 
 .seckill-section {
   background: #fff;
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .section-icon {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #FF5000, #FF3400);
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #FF5000, #FF3300);
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -876,60 +546,60 @@ onUnmounted(() => {
 }
 
 .section-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .section-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #333;
   margin: 0;
 }
 
 .section-badge {
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   color: #fff;
-  padding: 4px 8px;
+  padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
 .seckill-countdown {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .countdown-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #FF5000;
 }
 
 .countdown-numbers {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .cd-num {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
-  color: #FF5000;
-  background: #FFF5F0;
-  padding: 6px 10px;
-  border-radius: 6px;
+  color: #fff;
+  background: #FF5000;
+  padding: 3px 6px;
+  border-radius: 4px;
 }
 
 .cd-sep {
-  font-size: 16px;
+  font-size: 14px;
   color: #FF5000;
   font-weight: 700;
 }
@@ -938,20 +608,24 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #FF5000;
-  font-size: 14px;
+  color: #999;
+  font-size: 13px;
   text-decoration: none;
 }
 
+.header-link:hover {
+  color: #FF5000;
+}
+
 .header-link svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .seckill-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
   min-height: 200px;
 }
 
@@ -978,124 +652,212 @@ onUnmounted(() => {
 
 .empty-btn {
   padding: 8px 24px;
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   border-radius: 8px;
   color: #fff;
   font-size: 14px;
   text-decoration: none;
 }
 
-.category-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
+.right-sidebar {
+  width: 260px;
+  flex-shrink: 0;
 }
 
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.category-item {
+.activity-cards {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 20px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
+  gap: 10px;
 }
 
-.category-item:hover {
-  background: #f5f5f5;
+.activity-card {
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+  min-height: 72px;
+}
+
+.activity-card:hover {
   transform: translateY(-2px);
 }
 
-.category-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
+.card-red {
+  background: linear-gradient(135deg, #FF4D4F, #FF7875);
 }
 
-.category-icon svg {
+.card-orange {
+  background: linear-gradient(135deg, #FF7A45, #FF9C6E);
+}
+
+.card-pink {
+  background: linear-gradient(135deg, #FF7A33, #FF9A55);
+}
+
+.card-yellow {
+  background: linear-gradient(135deg, #FAAD14, #FFC53D);
+}
+
+.card-text h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 4px;
+}
+
+.card-text p {
+  font-size: 12px;
+  color: rgba(255,255,255,0.9);
+  margin: 0;
+}
+
+.card-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255,255,255,0.2);
+}
+
+.recommend-section {
+  max-width: 100%;
+  margin: 20px auto 0;
+  padding: 0 60px;
+}
+
+.recommend-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.header-icon {
   width: 28px;
   height: 28px;
-}
-
-.category-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.category-count {
-  font-size: 12px;
-  color: #999;
-}
-
-.features-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 32px;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
-}
-
-.feature-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-}
-
-.feature-icon {
-  width: 64px;
-  height: 64px;
-  background: linear-gradient(135deg, #FFF5F0, #FFE8E0);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   color: #FF5000;
 }
 
-.feature-icon svg {
-  width: 32px;
-  height: 32px;
+.header-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
-.feature-item h3 {
-  font-size: 16px;
+.header-text h3 {
+  font-size: 18px;
   font-weight: 600;
   color: #333;
   margin: 0;
 }
 
-.feature-item p {
+.header-text p {
   font-size: 12px;
   color: #999;
-  margin: 0;
+  margin: 2px 0 0;
 }
 
-@media (max-width: 1400px) {
-  .left-sidebar {
-    width: 180px;
-  }
-  
-  .right-sidebar {
-    width: 240px;
-  }
+.recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.recommend-item {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.recommend-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.rec-image {
+  width: 100%;
+  height: 180px;
+  background: #f8f8f8;
+  overflow: hidden;
+}
+
+.rec-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rec-img-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+}
+
+.rec-img-placeholder svg {
+  width: 48px;
+  height: 48px;
+}
+
+.rec-info {
+  padding: 12px;
+}
+
+.rec-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  margin: 0 0 8px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.rec-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.rec-current {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FF5000;
+}
+
+.rec-original {
+  font-size: 12px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.rec-tags {
+  display: flex;
+  gap: 6px;
+}
+
+.rec-tag {
+  font-size: 11px;
+  color: #FF5000;
+  background: #FFF0E6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.rec-tag.red {
+  background: #FF5000;
+  color: #fff;
 }
 
 @media (max-width: 1200px) {
@@ -1103,38 +865,30 @@ onUnmounted(() => {
   .right-sidebar {
     display: none;
   }
-  
+
   .seckill-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
-  .category-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .features-grid {
-    grid-template-columns: repeat(2, 1fr);
+
+  .recommend-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .banner-carousel {
     height: 200px;
   }
-  
+
   .slide-text h2 {
     font-size: 24px;
   }
-  
+
   .seckill-grid {
     grid-template-columns: 1fr;
   }
-  
-  .category-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .features-grid {
+
+  .recommend-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }

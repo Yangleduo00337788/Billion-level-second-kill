@@ -282,13 +282,13 @@ function handleGoogleRegister() {
 <style scoped>
 .tb-register-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #FFF5F0 0%, #FFE8E0 50%, #FFDCC8 100%);
+  background: linear-gradient(135deg, #FFF0E6 0%, #FFF0E6 50%, #FFD8C4 100%);
   display: flex;
   flex-direction: column;
 }
 
 .register-header-bar {
-  background: linear-gradient(135deg, #FF5000 0%, #FF7800 50%, #FF9000 100%);
+  background: linear-gradient(135deg, #FF5000 0%, #FF6633 50%, #FF7A33 100%);
   padding: 12px 24px;
   display: flex;
   justify-content: space-between;
@@ -374,7 +374,7 @@ function handleGoogleRegister() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255,80,0,0.3) 0%, rgba(255,120,0,0.2) 100%);
+  background: linear-gradient(135deg, rgba(255,80,0,0.3) 0%, rgba(255,102,51,0.2) 100%);
 }
 
 .banner-text {
@@ -526,7 +526,7 @@ function handleGoogleRegister() {
 .register-btn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   border: none;
   border-radius: 24px;
   color: #fff;
@@ -671,7 +671,7 @@ function handleGoogleRegister() {
 }
 
 .login-link a {
-  color: #FF5000;
+  color: #FF7490;
   font-weight: 500;
   text-decoration: none;
   margin-left: 4px;
@@ -709,11 +709,11 @@ function handleGoogleRegister() {
   .register-banner {
     display: none;
   }
-  
+
   .register-content {
     padding: 20px;
   }
-  
+
   .register-box {
     width: 100%;
     max-width: 400px;

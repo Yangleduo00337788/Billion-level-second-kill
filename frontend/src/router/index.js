@@ -22,7 +22,7 @@ const routes = [
   {
     path: '/seckill',
     name: 'Seckill',
-    component: () => import('../views/SeckillList.vue'),
+    component: () => import('../views/Seckill.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -59,6 +59,18 @@ const routes = [
     path: '/im',
     name: 'IM',
     component: () => import('../views/IM.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('../views/Profile.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/devices',
+    name: 'Devices',
+    component: () => import('../views/Devices.vue'),
     meta: { requiresAuth: true }
   }
 ]

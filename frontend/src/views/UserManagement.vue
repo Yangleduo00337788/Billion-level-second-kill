@@ -1,57 +1,6 @@
 <template>
-  <div class="admin-container">
-    <header class="admin-header">
-      <div class="header-inner">
-        <div class="brand">
-          <div class="brand-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-            </svg>
-          </div>
-          <div class="brand-text">
-            <span class="brand-name">Flash Mall</span>
-            <span class="brand-tagline">管理后台</span>
-          </div>
-        </div>
-        
-        <nav class="main-nav">
-          <router-link to="/seckill" class="nav-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-            </svg>
-            秒杀专区
-          </router-link>
-          <router-link to="/users" class="nav-item active">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-            </svg>
-            用户管理
-          </router-link>
-          <router-link to="/roles" class="nav-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5"/>
-              <path d="M2 12l10 5 10-5"/>
-            </svg>
-            角色管理
-          </router-link>
-        </nav>
-        
-        <div class="user-area">
-          <button class="logout-btn" @click="handleLogout">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            退出
-          </button>
-        </div>
-      </div>
-    </header>
-    
-    <main class="admin-main">
+  <Layout>
+    <div class="admin-page">
       <div class="page-header">
         <div class="page-title">
           <h1>用户管理</h1>
@@ -72,7 +21,7 @@
           </div>
         </div>
       </div>
-      
+
       <div class="content-card">
         <div class="card-header">
           <div class="search-box">
@@ -91,7 +40,7 @@
             刷新
           </button>
         </div>
-        
+
         <div class="table-wrapper" v-loading="loading">
           <table class="data-table">
             <thead>
@@ -157,7 +106,7 @@
               </tr>
             </tbody>
           </table>
-          
+
           <div v-if="filteredUsers.length === 0 && !loading" class="empty-state">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <circle cx="12" cy="12" r="10"/>
@@ -168,7 +117,7 @@
             <p>暂无用户数据</p>
           </div>
         </div>
-        
+
         <div class="pagination-bar" v-if="total > 0">
           <span class="page-info">共 {{ total }} 条记录</span>
           <div class="pagination-controls">
@@ -186,8 +135,8 @@
           </div>
         </div>
       </div>
-    </main>
-    
+    </div>
+
     <el-dialog v-model="resetPwdDialog" title="" width="400px" class="custom-dialog">
       <div class="dialog-content">
         <div class="dialog-icon">
@@ -228,7 +177,7 @@
         <button class="dialog-btn confirm" @click="confirmLock">确定</button>
       </template>
     </el-dialog>
-  </div>
+  </Layout>
 </template>
 
 <script setup>
@@ -236,6 +185,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUserList, updateUserStatus, deleteUser, lockUser, resetPassword } from '../api/user'
+import Layout from '../components/Layout.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -254,7 +204,7 @@ const lockForm = ref({ lockMinutes: 30 })
 const filteredUsers = computed(() => {
   if (!searchText.value) return users.value
   const search = searchText.value.toLowerCase()
-  return users.value.filter(u => 
+  return users.value.filter(u =>
     u.username?.toLowerCase().includes(search) ||
     u.phone?.includes(search) ||
     u.email?.toLowerCase().includes(search)
@@ -361,132 +311,26 @@ async function handleDelete(user) {
   }
 }
 
-function handleLogout() {
-  localStorage.removeItem('accessToken')
-  router.push('/login')
-}
-
 onMounted(() => {
   loadUsers()
 })
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
-
-.admin-container {
-  min-height: 100vh;
-  background: #f8f9fc;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.admin-header {
-  background: #fff;
-  border-bottom: 1px solid #eee;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-inner {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 72px;
+.admin-page {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-icon {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
-.brand-icon svg { width: 22px; height: 22px; }
-
-.brand-text { display: flex; flex-direction: column; }
-
-.brand-name {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a1a2e;
-}
-
-.brand-tagline {
-  font-size: 11px;
-  color: #6366f1;
-  font-weight: 600;
-}
-
-.main-nav { display: flex; gap: 8px; }
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #64748b;
-  text-decoration: none;
-  transition: all 0.2s;
-}
-
-.nav-item svg { width: 18px; height: 18px; }
-.nav-item:hover { background: #f1f5f9; color: #1a1a2e; }
-.nav-item.active { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; }
-
-.user-area { display: flex; align-items: center; gap: 12px; }
-
-.logout-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: #fef2f2;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #ef4444;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.logout-btn svg { width: 18px; height: 18px; }
-.logout-btn:hover { background: #fee2e2; }
-
-.admin-main {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 32px 24px;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
 }
 
 .page-title h1 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: #1a1a2e;
   margin: 0 0 8px 0;
@@ -494,11 +338,14 @@ onMounted(() => {
 
 .page-title p {
   font-size: 14px;
-  color: #64748b;
+  color: #999;
   margin: 0;
 }
 
-.page-stats { display: flex; gap: 16px; }
+.page-stats {
+  display: flex;
+  gap: 16px;
+}
 
 .stat-card {
   display: flex;
@@ -519,24 +366,36 @@ onMounted(() => {
   justify-content: center;
 }
 
-.stat-icon.users { background: #eef2ff; color: #6366f1; }
-.stat-icon svg { width: 22px; height: 22px; }
+.stat-icon.users {
+  background: #FFF0E6;
+  color: #FF5000;
+}
 
-.stat-info { display: flex; flex-direction: column; }
+.stat-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
 
 .stat-value {
-  font-family: 'Space Grotesk', sans-serif;
   font-size: 24px;
   font-weight: 700;
   color: #1a1a2e;
 }
 
-.stat-label { font-size: 12px; color: #64748b; }
+.stat-label {
+  font-size: 12px;
+  color: #999;
+}
 
 .content-card {
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   overflow: hidden;
 }
 
@@ -545,7 +404,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .search-box {
@@ -553,18 +412,23 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: #f8fafc;
-  border-radius: 10px;
+  background: #f8f8f8;
+  border-radius: 8px;
   width: 300px;
 }
 
-.search-box svg { width: 18px; height: 18px; color: #94a3b8; }
+.search-box svg {
+  width: 18px;
+  height: 18px;
+  color: #999;
+}
+
 .search-box input {
   flex: 1;
   border: none;
   background: transparent;
   font-size: 14px;
-  color: #1a1a2e;
+  color: #333;
   outline: none;
 }
 
@@ -573,20 +437,28 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  background: #f8fafc;
+  background: #f8f8f8;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #64748b;
+  color: #666;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.refresh-btn svg { width: 18px; height: 18px; }
-.refresh-btn:hover { background: #f1f5f9; }
+.refresh-btn svg {
+  width: 18px;
+  height: 18px;
+}
 
-.table-wrapper { overflow-x: auto; }
+.refresh-btn:hover {
+  background: #f0f0f0;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
 
 .data-table {
   width: 100%;
@@ -598,23 +470,20 @@ onMounted(() => {
   text-align: left;
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
-  background: #f8fafc;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: #999;
+  background: #fafafa;
 }
 
 .data-table td {
   padding: 16px;
   font-size: 14px;
-  color: #1a1a2e;
-  border-bottom: 1px solid #f1f5f9;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .id-cell {
-  font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
-  color: #64748b;
+  color: #999;
 }
 
 .name-cell {
@@ -626,7 +495,7 @@ onMounted(() => {
 .user-avatar {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -644,13 +513,29 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.status-badge.active { background: #dcfce7; color: #22c55e; }
-.status-badge.disabled { background: #fef2f2; color: #ef4444; }
-.status-badge.locked { background: #fef3c7; color: #d97706; }
+.status-badge.active {
+  background: #E8F5E9;
+  color: #4CAF50;
+}
 
-.actions-cell { width: 140px; }
+.status-badge.disabled {
+  background: #FFF0E6;
+  color: #FF5000;
+}
 
-.action-buttons { display: flex; gap: 6px; }
+.status-badge.locked {
+  background: #FFF8E1;
+  color: #F9A825;
+}
+
+.actions-cell {
+  width: 180px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 6px;
+}
 
 .action-btn {
   width: 32px;
@@ -664,43 +549,97 @@ onMounted(() => {
   transition: all 0.2s;
 }
 
-.action-btn svg { width: 16px; height: 16px; }
-.action-btn.enable { background: #dcfce7; color: #22c55e; }
-.action-btn.enable:hover { background: #bbf7d0; }
-.action-btn.disable { background: #fef2f2; color: #ef4444; }
-.action-btn.disable:hover { background: #fee2e2; }
-.action-btn.lock { background: #fef3c7; color: #d97706; }
-.action-btn.lock:hover { background: #fde68a; }
-.action-btn.reset { background: #eef2ff; color: #6366f1; }
-.action-btn.reset:hover { background: #e0e7ff; }
-.action-btn.delete { background: #f1f5f9; color: #64748b; }
-.action-btn.delete:hover { background: #e2e8f0; color: #ef4444; }
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.action-btn.enable {
+  background: #E8F5E9;
+  color: #4CAF50;
+}
+
+.action-btn.enable:hover {
+  background: #C8E6C9;
+}
+
+.action-btn.disable {
+  background: #FFF0E6;
+  color: #FF5000;
+}
+
+.action-btn.disable:hover {
+  background: #FFD8C4;
+}
+
+.action-btn.lock {
+  background: #FFF8E1;
+  color: #F9A825;
+}
+
+.action-btn.lock:hover {
+  background: #FFECB3;
+}
+
+.action-btn.reset {
+  background: #F3E5F5;
+  color: #9C27B0;
+}
+
+.action-btn.reset:hover {
+  background: #E1BEE7;
+}
+
+.action-btn.delete {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.action-btn.delete:hover {
+  background: #e0e0e0;
+  color: #F44336;
+}
 
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #94a3b8;
+  color: #ccc;
 }
 
-.empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; }
-.empty-state p { margin: 0; font-size: 14px; }
+.empty-state svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
 
 .pagination-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f0f0f0;
 }
 
-.page-info { font-size: 13px; color: #64748b; }
+.page-info {
+  font-size: 13px;
+  color: #999;
+}
 
-.pagination-controls { display: flex; align-items: center; gap: 8px; }
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .page-btn {
   width: 32px;
   height: 32px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
   background: #fff;
   display: flex;
@@ -710,71 +649,100 @@ onMounted(() => {
   transition: all 0.2s;
 }
 
-.page-btn svg { width: 16px; height: 16px; color: #64748b; }
-.page-btn:hover:not(:disabled) { border-color: #6366f1; }
-.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.page-btn svg {
+  width: 16px;
+  height: 16px;
+  color: #666;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #FF5000;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .page-num {
-  font-family: 'Space Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: #333;
   padding: 0 8px;
 }
 
-.dialog-content { text-align: center; padding: 10px 0; }
+.dialog-content {
+  text-align: center;
+  padding: 10px 0;
+}
 
 .dialog-icon {
   width: 60px;
   height: 60px;
-  background: #eef2ff;
+  background: #FFF0E6;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
-  color: #6366f1;
+  color: #FF5000;
 }
 
-.dialog-icon.warning { background: #fef3c7; color: #d97706; }
-.dialog-icon svg { width: 28px; height: 28px; }
+.dialog-icon.warning {
+  background: #FFF8E1;
+  color: #F9A825;
+}
+
+.dialog-icon svg {
+  width: 28px;
+  height: 28px;
+}
 
 .dialog-content h3 {
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #333;
   margin: 0 0 8px 0;
 }
 
-.dialog-desc { font-size: 13px; color: #64748b; margin: 0 0 20px 0; }
+.dialog-desc {
+  font-size: 13px;
+  color: #999;
+  margin: 0 0 20px 0;
+}
 
-.form-group { text-align: left; margin-bottom: 8px; }
+.form-group {
+  text-align: left;
+  margin-bottom: 8px;
+}
 
 .form-group label {
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: #64748b;
+  color: #666;
   margin-bottom: 8px;
 }
 
 .form-group input {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
   font-size: 14px;
-  color: #1a1a2e;
+  color: #333;
   outline: none;
   transition: all 0.2s;
 }
 
-.form-group input:focus { border-color: #6366f1; }
+.form-group input:focus {
+  border-color: #FF5000;
+}
 
 .dialog-btn {
   padding: 10px 20px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -782,16 +750,20 @@ onMounted(() => {
 }
 
 .dialog-btn.cancel {
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f5f5f5;
+  color: #666;
 }
 
-.dialog-btn.cancel:hover { background: #e2e8f0; }
+.dialog-btn.cancel:hover {
+  background: #e0e0e0;
+}
 
 .dialog-btn.confirm {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   color: #fff;
 }
 
-.dialog-btn.confirm:hover { filter: brightness(1.1); }
+.dialog-btn.confirm:hover {
+  filter: brightness(1.1);
+}
 </style>

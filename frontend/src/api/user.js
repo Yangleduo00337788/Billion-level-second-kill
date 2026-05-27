@@ -68,3 +68,47 @@ export function deleteRole(roleId) {
     method: 'delete'
   })
 }
+
+export function getMyProfile() {
+  return request({
+    url: '/profile/me',
+    method: 'get'
+  })
+}
+
+export function updateMyProfile(data) {
+  return request({
+    url: '/profile/me',
+    method: 'put',
+    data
+  })
+}
+
+export function getMyDevices() {
+  return request({
+    url: '/devices/my',
+    method: 'get'
+  })
+}
+
+export function removeDevice(deviceId) {
+  return request({
+    url: `/devices/${deviceId}`,
+    method: 'delete'
+  })
+}
+
+export function removeAllOtherDevices() {
+  return request({
+    url: '/devices/remove-others',
+    method: 'post'
+  })
+}
+
+export function setDeviceTrusted(deviceId, trusted) {
+  return request({
+    url: `/devices/${deviceId}/trust`,
+    method: 'put',
+    params: { trusted }
+  })
+}

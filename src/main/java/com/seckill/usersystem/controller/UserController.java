@@ -26,12 +26,6 @@ public class UserController {
         return Result.success(userService.listUsers(pageNum, pageSize));
     }
 
-    @Operation(summary = "获取用户详情")
-    @GetMapping("/{userId}")
-    public Result<UserVO> getUser(@PathVariable Long userId) {
-        return Result.success();
-    }
-
     @Operation(summary = "更新用户状态")
     @PutMapping("/{userId}/status")
     public Result<Void> updateStatus(@PathVariable Long userId, @RequestParam Integer status) {

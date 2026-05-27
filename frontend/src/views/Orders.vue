@@ -379,7 +379,7 @@ onUnmounted(() => {
 }
 
 .order-status.pending {
-  background: #FFF5F0;
+  background: #FFF0E6;
   color: #FF5000;
 }
 
@@ -483,7 +483,7 @@ onUnmounted(() => {
 .total-value {
   font-size: 18px;
   font-weight: 700;
-  color: #FF5000;
+  color: #FF7490;
 }
 
 .footer-right {
@@ -529,7 +529,7 @@ onUnmounted(() => {
 }
 
 .action-btn.pay {
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   border: none;
   color: #fff;
 }
@@ -562,7 +562,7 @@ onUnmounted(() => {
 
 .empty-btn {
   padding: 12px 24px;
-  background: linear-gradient(135deg, #FF5000, #FF3400);
+  background: linear-gradient(135deg, #FF5000, #FF3300);
   border-radius: 8px;
   color: #fff;
   font-size: 14px;
