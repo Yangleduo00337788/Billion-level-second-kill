@@ -2,10 +2,13 @@ package prompt
 
 import (
 	"errors"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
 	repo *Repository
+	db   *gorm.DB
 }
 
 func NewService(repo *Repository) *Service {
@@ -14,8 +17,8 @@ func NewService(repo *Repository) *Service {
 
 type CreatePromptReq struct {
 	Title       string `json:"title" binding:"required,max=200"`
-	Content     string `json:"content" binding:"required"`
 	Description string `json:"description"`
+	Content     string `json:"content" binding:"required"`
 	Category    string `json:"category"`
 	Model       string `json:"model"`
 	Tags        string `json:"tags"`
@@ -23,95 +26,102 @@ type CreatePromptReq struct {
 
 type UpdatePromptReq struct {
 	Title       string `json:"title"`
-	Content     string `json:"content"`
 	Description string `json:"description"`
+	Content     string `json:"content"`
 	Category    string `json:"category"`
 	Model       string `json:"model"`
 	Tags        string `json:"tags"`
 }
 
 func (s *Service) Create(userID uint, req *CreatePromptReq) (*Prompt, error) {
-	p := &Prompt{
+	tags := req.Tags
+	if tags == "" {
+		tags = "[]"
+	}
+
+	prompt := &Prompt{
 		UserID:      userID,
 		Title:       req.Title,
-		Content:     req.Content,
 		Description: req.Description,
+		Content:     req.Content,
 		Category:    req.Category,
 		Model:       req.Model,
-		Tags:        req.Tags,
+		Tags:        tags,
 		Status:      1,
 	}
 
-	if err := s.repo.Create(p); err != nil {
+	if err := s.repo.Create(prompt); err != nil {
 		return nil, err
 	}
 
-	return p, nil
+	return prompt, nil
 }
 
-func (s *Service) GetByID(id uint) (*Prompt, error) {
-	p, err := s.repo.FindByID(id)
+func (s *Service) Update(id uint, userID uint, req *UpdatePromptReq) (*Prompt, error) {
+	prompt, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("prompt not found")
 	}
 
-	s.repo.IncrementUsageCount(id)
-	return p, nil
-}
-
-func (s *Service) Update(id, userID uint, req *UpdatePromptReq) (*Prompt, error) {
-	p, err := s.repo.FindByID(id)
-	if err != nil {
-		return nil, errors.New("prompt not found")
-	}
-
-	if p.UserID != userID {
+	if prompt.UserID != userID {
 		return nil, errors.New("permission denied")
 	}
 
 	if req.Title != "" {
-		p.Title = req.Title
-	}
-	if req.Content != "" {
-		p.Content = req.Content
+		prompt.Title = req.Title
 	}
 	if req.Description != "" {
-		p.Description = req.Description
+		prompt.Description = req.Description
+	}
+	if req.Content != "" {
+		prompt.Content = req.Content
 	}
 	if req.Category != "" {
-		p.Category = req.Category
+		prompt.Category = req.Category
 	}
 	if req.Model != "" {
-		p.Model = req.Model
+		prompt.Model = req.Model
 	}
 	if req.Tags != "" {
-		p.Tags = req.Tags
+		prompt.Tags = req.Tags
 	}
 
-	if err := s.repo.Update(p); err != nil {
+	if err := s.repo.Update(prompt); err != nil {
 		return nil, err
 	}
 
-	return p, nil
+	return prompt, nil
+}
+
+func (s *Service) GetByID(id uint) (*Prompt, error) {
+	prompt, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, errors.New("prompt not found")
+	}
+	s.repo.IncrementUsageCount(id)
+	return prompt, nil
+}
+
+func (s *Service) List(page, pageSize int, category, tag string, userID uint) ([]Prompt, int64, error) {
+	return s.repo.List(page, pageSize, category, tag, userID)
 }
 
 func (s *Service) Delete(id, userID uint) error {
-	p, err := s.repo.FindByID(id)
+	prompt, err := s.repo.FindByID(id)
 	if err != nil {
 		return errors.New("prompt not found")
 	}
 
-	if p.UserID != userID {
+	if prompt.UserID != userID {
 		return errors.New("permission denied")
 	}
 
 	return s.repo.Delete(id)
 }
 
-func (s *Service) List(page, pageSize int, category, tag string) ([]Prompt, int64, error) {
-	return s.repo.List(page, pageSize, category, tag)
-}
-
-func (s *Service) SearchTitle(keyword string, page, pageSize int) ([]Prompt, int64, error) {
-	return s.repo.SearchTitle(keyword, page, pageSize)
+func (s *Service) GetHot(limit int) ([]Prompt, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	return s.repo.GetHot(limit)
 }

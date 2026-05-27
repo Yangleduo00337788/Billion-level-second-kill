@@ -125,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { NButton, NAvatar, useMessage } from 'naive-ui'
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
@@ -181,6 +181,17 @@ function send() {
     message.error('发送失败')
   }
 }
+
+onMounted(() => {
+  if (userStore.isAuthenticated && userStore.token) {
+    store.connect(userStore.token)
+    store.fetchContacts()
+  }
+})
+
+onUnmounted(() => {
+  store.disconnect()
+})
 
 watch(() => store.activeMessages.length, async () => {
   await nextTick()

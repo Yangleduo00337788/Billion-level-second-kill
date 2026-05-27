@@ -3,6 +3,8 @@ package user
 import (
 	"errors"
 
+	"inference-engine/internal/admin"
+	"inference-engine/internal/notify"
 	"inference-engine/internal/pkg/jwt"
 
 	"golang.org/x/crypto/bcrypt"
@@ -10,12 +12,19 @@ import (
 )
 
 type Service struct {
-	repo *Repository
-	db   *gorm.DB
+	repo        *Repository
+	notifySvc   *notify.Service
+	auditLogSvc *admin.AuditLogService
+	db          *gorm.DB
 }
 
 func NewService(repo *Repository, db *gorm.DB) *Service {
-	return &Service{repo: repo, db: db}
+	return &Service{
+		repo:        repo,
+		notifySvc:   notify.NewService(db),
+		auditLogSvc: admin.NewAuditLogService(db),
+		db:          db,
+	}
 }
 
 type RegisterReq struct {
@@ -63,6 +72,9 @@ func (s *Service) Register(req *RegisterReq) (*User, error) {
 		return nil, err
 	}
 
+	// Audit log
+	go s.auditLogSvc.LogUserAction(user.ID, "用户注册", "user", user.Username)
+
 	return user, nil
 }
 
@@ -84,6 +96,9 @@ func (s *Service) Login(req *LoginReq) (*LoginResp, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(user.ID, "用户登录", "user", user.Username)
 
 	return &LoginResp{
 		Token: token,
@@ -132,6 +147,10 @@ func (s *Service) UpdateProfile(userID uint, req *UpdateProfileReq) (*User, erro
 	if err := s.repo.Update(user); err != nil {
 		return nil, err
 	}
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "更新资料", "user", user.Username)
+
 	return user, nil
 }
 
@@ -140,7 +159,7 @@ func (s *Service) Follow(followerID, followedID uint) error {
 		return errors.New("cannot follow yourself")
 	}
 
-	_, err := s.repo.FindByID(followedID)
+	followedUser, err := s.repo.FindByID(followedID)
 	if err != nil {
 		return errors.New("user not found")
 	}
@@ -165,6 +184,19 @@ func (s *Service) Follow(followerID, followedID uint) error {
 	tx.Model(&User{}).Where("id = ?", followedID).UpdateColumn("fans_count", gorm.Expr("fans_count + 1"))
 
 	tx.Commit()
+
+	// Trigger notification to followed user
+	go s.notifySvc.Create(&notify.CreateNotifyReq{
+		UserID:   followedID,
+		ActorID:  followerID,
+		Type:     "follow",
+		Content:  "关注了你",
+		TargetID: followerID,
+	})
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(followerID, "关注用户", "user", followedUser.Username)
+
 	return nil
 }
 
@@ -173,6 +205,8 @@ func (s *Service) Unfollow(followerID, followedID uint) error {
 	if !following {
 		return errors.New("not following")
 	}
+
+	followedUser, _ := s.repo.FindByID(followedID)
 
 	tx := s.db.Begin()
 
@@ -185,6 +219,12 @@ func (s *Service) Unfollow(followerID, followedID uint) error {
 	tx.Model(&User{}).Where("id = ?", followedID).UpdateColumn("fans_count", gorm.Expr("fans_count - 1"))
 
 	tx.Commit()
+
+	// Audit log
+	if followedUser != nil {
+		go s.auditLogSvc.LogUserAction(followerID, "取消关注", "user", followedUser.Username)
+	}
+
 	return nil
 }
 

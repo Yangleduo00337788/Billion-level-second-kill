@@ -1,5 +1,15 @@
 <template>
-  <div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="max-w-[1100px] mx-auto px-6 lg:px-10 py-8">
+    <button
+      class="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-dark transition-colors glass-button px-3 py-1.5 rounded-xl"
+      @click="router.back()"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      返回
+    </button>
+
     <div v-if="loading" class="text-center py-20 text-gray-400"><n-spin size="large" /></div>
 
     <template v-else-if="prompt">

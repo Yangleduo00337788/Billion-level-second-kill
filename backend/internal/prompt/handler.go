@@ -40,6 +40,7 @@ func (h *Handler) List(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
 	category := c.Query("category")
 	tag := c.Query("tag")
+	userIDFilter, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 
 	if page < 1 {
 		page = 1
@@ -48,7 +49,7 @@ func (h *Handler) List(c *gin.Context) {
 		pageSize = 10
 	}
 
-	prompts, total, err := h.svc.List(page, pageSize, category, tag)
+	prompts, total, err := h.svc.List(page, pageSize, category, tag, uint(userIDFilter))
 	if err != nil {
 		response.Error(c, response.ErrInternal, err.Error())
 		return

@@ -183,11 +183,17 @@ func (h *Handler) GetFollowing(c *gin.Context) {
 	response.Page(c, users, total, page, pageSize)
 }
 
-func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
+func RegisterRoutes(r *gin.RouterGroup, handler *Handler, oauthHandler *OAuthHandler) {
 	auth := r.Group("/auth")
 	{
 		auth.POST("/register", handler.Register)
 		auth.POST("/login", handler.Login)
+		auth.GET("/google", oauthHandler.GoogleLogin)
+		auth.GET("/google/callback", oauthHandler.GoogleCallback)
+		auth.GET("/github", oauthHandler.GitHubLogin)
+		auth.GET("/github/callback", oauthHandler.GitHubCallback)
+		auth.GET("/wechat", oauthHandler.WeChatLogin)
+		auth.GET("/wechat/callback", oauthHandler.WeChatCallback)
 	}
 
 	user := r.Group("/user")

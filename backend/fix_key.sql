@@ -1,0 +1,1 @@
+ALTER TABLE system_configs MODIFY COLUMN `key` VARCHAR(100) COMMENT '配置键名';

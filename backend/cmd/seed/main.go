@@ -74,12 +74,12 @@ func seed(db *gorm.DB) {
 	}
 
 	articles := []article.Article{
-		{UserID: u2.ID, Title: "Go 1.24 新特性详解", Content: "# Go 1.24 新特性\n\nGo 1.24 带来了许多令人兴奋的新特性...\n\n## 泛型类型别名\n\n```go\ntype MySlice[T any] = []T\n```\n\n## 性能改进\n\n内存分配和垃圾回收都有显著优化。\n\n## 总结\n\n升级到 Go 1.24 会带来更好的开发体验。", Summary: "Go 1.24 在泛型、性能和工具链方面都有重要更新，本文详细介绍每个新特性。", CategoryID: catGo.ID, Tags: `["go","gin"]`, Status: "published", ViewCount: 1280, LikeCount: 45, CommentCount: 3},
-		{UserID: u3.ID, Title: "Prompt Engineering 最佳实践", Content: "# Prompt Engineering 指南\n\n写好 prompt 是使用 AI 的关键技能。\n\n## 明确目标\n\n每次对话前明确你想要的输出格式。\n\n## 提供上下文\n\n```markdown\n你是一个资深 Go 工程师，请帮我审查以下代码：\n```\n\n## 迭代优化\n\n不断调整 prompt 直到得到理想结果。", Summary: "掌握 prompt engineering 的核心技巧，让 AI 输出更准确。", CategoryID: catAI.ID, Tags: `["gpt"]`, Status: "published", ViewCount: 2560, LikeCount: 89, CommentCount: 5},
-		{UserID: u2.ID, Title: "Vue 3 + TypeScript 项目搭建", Content: "# Vue 3 + TypeScript 项目搭建\n\n## 环境准备\n\n```bash\nnpm create vue@latest\n```\n\n## 目录结构\n\n```\nsrc/\n  components/\n  views/\n  stores/\n  router/\n```\n\n## 状态管理\n\n使用 Pinia 替代 Vuex，类型更安全。", Summary: "从零搭建 Vue 3 + TypeScript 企业级项目的完整指南。", CategoryID: catFront.ID, Tags: `["vue"]`, Status: "published", ViewCount: 890, LikeCount: 32, CommentCount: 2},
-		{UserID: u3.ID, Title: "Docker Compose 多服务部署", Content: "# Docker Compose 实战\n\n## 配置示例\n\n```yaml\nversion: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - \"8080:8080\"\n```\n\n## 网络配置\n\n使用自定义网络让容器间通信。\n\n## 数据持久化\n\n使用 named volume 保存数据库数据。", Summary: "使用 Docker Compose 编排多服务应用的最佳实践。", CategoryID: catDev.ID, Tags: `["docker"]`, Status: "published", ViewCount: 1560, LikeCount: 67, CommentCount: 4},
-		{UserID: u1.ID, Title: "GORM 使用技巧汇总", Content: "# GORM 使用技巧\n\n## 软删除\n\n```go\ntype Model struct {\n  DeletedAt gorm.DeletedAt\n}\n```\n\n## 预加载\n\n```go\ndb.Preload(\"User\").Find(&articles)\n```\n\n## 事务\n\n```go\ndb.Transaction(func(tx *gorm.DB) error {\n  return nil\n})\n```", Summary: "日常开发中常用的 GORM 技巧和踩坑记录。", CategoryID: catGo.ID, Tags: `["go","gorm"]`, Status: "published", ViewCount: 720, LikeCount: 28, CommentCount: 1},
-		{UserID: u2.ID, Title: "WebSocket 实时通信方案选型", Content: "# WebSocket 方案对比\n\n| 方案 | 优点 | 缺点 |\n|------|------|------|\n| Gorilla | 成熟稳定 | 需自行管理 |\n| nhooyr | 标准库风格 | 社区较小 |\n\n## 推荐\n\n中小项目推荐 Gorilla WebSocket。", Summary: "Go 语言 WebSocket 库的对比与选择建议。", CategoryID: catBack.ID, Tags: `["go","websocket"]`, Status: "published", ViewCount: 630, LikeCount: 22, CommentCount: 2},
+		{UserID: u2.ID, Title: "Go 1.24 新特性详解", Content: "# Go 1.24 新特性\n\nGo 1.24 带来了许多令人兴奋的新特性...\n\n## 泛型类型别名\n\n```go\ntype MySlice[T any] = []T\n```\n\n## 性能改进\n\n内存分配和垃圾回收都有显著优化。\n\n## 总结\n\n升级到 Go 1.24 会带来更好的开发体验。", Summary: "Go 1.24 在泛型、性能和工具链方面都有重要更新，本文详细介绍每个新特性。", CategoryID: uintPtr(catGo.ID), Tags: `["go","gin"]`, Status: "published", ViewCount: 1280, LikeCount: 45, CommentCount: 3},
+		{UserID: u3.ID, Title: "Prompt Engineering 最佳实践", Content: "# Prompt Engineering 指南\n\n写好 prompt 是使用 AI 的关键技能。\n\n## 明确目标\n\n每次对话前明确你想要的输出格式。\n\n## 提供上下文\n\n```markdown\n你是一个资深 Go 工程师，请帮我审查以下代码：\n```\n\n## 迭代优化\n\n不断调整 prompt 直到得到理想结果。", Summary: "掌握 prompt engineering 的核心技巧，让 AI 输出更准确。", CategoryID: uintPtr(catAI.ID), Tags: `["gpt"]`, Status: "published", ViewCount: 2560, LikeCount: 89, CommentCount: 5},
+		{UserID: u2.ID, Title: "Vue 3 + TypeScript 项目搭建", Content: "# Vue 3 + TypeScript 项目搭建\n\n## 环境准备\n\n```bash\nnpm create vue@latest\n```\n\n## 目录结构\n\n```\nsrc/\n  components/\n  views/\n  stores/\n  router/\n```\n\n## 状态管理\n\n使用 Pinia 替代 Vuex，类型更安全。", Summary: "从零搭建 Vue 3 + TypeScript 企业级项目的完整指南。", CategoryID: uintPtr(catFront.ID), Tags: `["vue"]`, Status: "published", ViewCount: 890, LikeCount: 32, CommentCount: 2},
+		{UserID: u3.ID, Title: "Docker Compose 多服务部署", Content: "# Docker Compose 实战\n\n## 配置示例\n\n```yaml\nversion: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - \"8080:8080\"\n```\n\n## 网络配置\n\n使用自定义网络让容器间通信。\n\n## 数据持久化\n\n使用 named volume 保存数据库数据。", Summary: "使用 Docker Compose 编排多服务应用的最佳实践。", CategoryID: uintPtr(catDev.ID), Tags: `["docker"]`, Status: "published", ViewCount: 1560, LikeCount: 67, CommentCount: 4},
+		{UserID: u1.ID, Title: "GORM 使用技巧汇总", Content: "# GORM 使用技巧\n\n## 软删除\n\n```go\ntype Model struct {\n  DeletedAt gorm.DeletedAt\n}\n```\n\n## 预加载\n\n```go\ndb.Preload(\"User\").Find(&articles)\n```\n\n## 事务\n\n```go\ndb.Transaction(func(tx *gorm.DB) error {\n  return nil\n})\n```", Summary: "日常开发中常用的 GORM 技巧和踩坑记录。", CategoryID: uintPtr(catGo.ID), Tags: `["go","gorm"]`, Status: "published", ViewCount: 720, LikeCount: 28, CommentCount: 1},
+		{UserID: u2.ID, Title: "WebSocket 实时通信方案选型", Content: "# WebSocket 方案对比\n\n| 方案 | 优点 | 缺点 |\n|------|------|------|\n| Gorilla | 成熟稳定 | 需自行管理 |\n| nhooyr | 标准库风格 | 社区较小 |\n\n## 推荐\n\n中小项目推荐 Gorilla WebSocket。", Summary: "Go 语言 WebSocket 库的对比与选择建议。", CategoryID: uintPtr(catBack.ID), Tags: `["go","websocket"]`, Status: "published", ViewCount: 630, LikeCount: 22, CommentCount: 2},
 	}
 	for _, a := range articles {
 		db.Where("title = ?", a.Title).FirstOrCreate(&a)
@@ -142,4 +142,8 @@ func seed(db *gorm.DB) {
 
 	_ = rand.Intn(10)
 	fmt.Println("seeded: users(3), categories(5), tags(8), articles(6), comments(5), prompts(5), follows(2), likes(10)")
+}
+
+func uintPtr(v uint) *uint {
+	return &v
 }

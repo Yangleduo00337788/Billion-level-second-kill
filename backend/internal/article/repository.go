@@ -176,3 +176,20 @@ func (r *Repository) GetFeed(userID uint, page, pageSize int) ([]Article, int64,
 
 	return articles, total, err
 }
+
+func (r *Repository) ListCategories() ([]Category, error) {
+	var categories []Category
+	err := r.db.Order("sort ASC").Find(&categories).Error
+	return categories, err
+}
+
+func (r *Repository) GetUserInteraction(userID, articleID uint) (liked bool, favorited bool) {
+	var likeCount int64
+	r.db.Model(&Like{}).Where("user_id = ? AND target_type = ? AND target_id = ?", userID, "article", articleID).Count(&likeCount)
+	liked = likeCount > 0
+
+	var favCount int64
+	r.db.Model(&Favorite{}).Where("user_id = ? AND article_id = ?", userID, articleID).Count(&favCount)
+	favorited = favCount > 0
+	return
+}

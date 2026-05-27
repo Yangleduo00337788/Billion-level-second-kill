@@ -3,7 +3,9 @@ package comment
 import (
 	"errors"
 
+	"inference-engine/internal/admin"
 	"inference-engine/internal/article"
+	"inference-engine/internal/notify"
 
 	"gorm.io/gorm"
 )
@@ -11,11 +13,19 @@ import (
 type Service struct {
 	repo        *Repository
 	articleRepo *article.Repository
+	notifySvc   *notify.Service
+	auditLogSvc *admin.AuditLogService
 	db          *gorm.DB
 }
 
 func NewService(repo *Repository, articleRepo *article.Repository, db *gorm.DB) *Service {
-	return &Service{repo: repo, articleRepo: articleRepo, db: db}
+	return &Service{
+		repo:        repo,
+		articleRepo: articleRepo,
+		notifySvc:   notify.NewService(db),
+		auditLogSvc: admin.NewAuditLogService(db),
+		db:          db,
+	}
 }
 
 type CreateCommentReq struct {
@@ -24,7 +34,7 @@ type CreateCommentReq struct {
 }
 
 func (s *Service) Create(userID, articleID uint, req *CreateCommentReq) (*Comment, error) {
-	_, err := s.articleRepo.FindByID(articleID)
+	art, err := s.articleRepo.FindByID(articleID)
 	if err != nil {
 		return nil, errors.New("article not found")
 	}
@@ -41,6 +51,21 @@ func (s *Service) Create(userID, articleID uint, req *CreateCommentReq) (*Commen
 	}
 
 	s.articleRepo.IncrementCommentCount(articleID)
+
+	// Trigger notification to article author
+	if art.UserID != userID {
+		go s.notifySvc.Create(&notify.CreateNotifyReq{
+			UserID:   art.UserID,
+			ActorID:  userID,
+			Type:     "comment",
+			Content:  "评论了你的文章",
+			TargetID: articleID,
+		})
+	}
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "评论文章", "article", art.Title)
+
 	return comment, nil
 }
 
@@ -63,5 +88,9 @@ func (s *Service) Delete(commentID, userID uint) error {
 	}
 
 	s.articleRepo.DecrementCommentCount(comment.ArticleID)
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "删除评论", "comment", "评论ID: "+string(rune(commentID)))
+
 	return nil
 }

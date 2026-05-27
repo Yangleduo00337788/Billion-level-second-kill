@@ -1,8 +1,12 @@
 package middleware
 
 import (
+	"bytes"
+	"io"
 	"strings"
+	"time"
 
+	"inference-engine/internal/admin"
 	"inference-engine/internal/pkg/jwt"
 	"inference-engine/internal/pkg/response"
 
@@ -63,5 +67,44 @@ func AdminOnly() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// AdminAuditLog middleware for admin write operations
+func AdminAuditLog(handler *admin.Handler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Skip GET requests
+		if c.Request.Method == "GET" {
+			c.Next()
+			return
+		}
+
+		// Read request body
+		var bodyBytes []byte
+		if c.Request.Body != nil {
+			bodyBytes, _ = io.ReadAll(c.Request.Body)
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
+
+		start := time.Now()
+		c.Next()
+		duration := time.Since(start)
+
+		// Get user info
+		userID := GetUserID(c)
+		username := ""
+		if u, exists := c.Get("username"); exists {
+			username = u.(string)
+		}
+
+		// Create audit log
+		action := c.Request.Method + " " + c.Request.URL.Path
+		target := c.Request.URL.String()
+		detail := string(bodyBytes)
+		if duration > 0 {
+			detail += " | duration: " + time.Since(start).String()
+		}
+
+		go handler.CreateAuditLog(userID, username, action, target, detail, c.ClientIP())
 	}
 }

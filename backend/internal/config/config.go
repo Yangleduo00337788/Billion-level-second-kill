@@ -15,6 +15,7 @@ type Config struct {
 	AI       AIConfig       `mapstructure:"ai"`
 	ES       ESConfig       `mapstructure:"es"`
 	MinIO    MinIOConfig    `mapstructure:"minio"`
+	OAuth    OAuthConfig    `mapstructure:"oauth"`
 	App      AppConfig      `mapstructure:"app"`
 }
 
@@ -68,6 +69,19 @@ type MinIOConfig struct {
 	SecretKey string `mapstructure:"secret_key"`
 	Bucket    string `mapstructure:"bucket"`
 	UseSSL    bool   `mapstructure:"use_ssl"`
+}
+
+type OAuthProviderConfig struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+	RedirectURL  string `mapstructure:"redirect_url"`
+}
+
+type OAuthConfig struct {
+	Google   OAuthProviderConfig `mapstructure:"google"`
+	GitHub   OAuthProviderConfig `mapstructure:"github"`
+	WeChat   OAuthProviderConfig `mapstructure:"wechat"`
+	ProxyURL string              `mapstructure:"proxy_url"`
 }
 
 type AppConfig struct {

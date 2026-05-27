@@ -12,7 +12,7 @@ export const useArticleStore = defineStore('article', () => {
   const page = ref(1)
   const loading = ref(false)
 
-  async function fetchList(params?: { page?: number; size?: number; category?: number; tag?: string; status?: string }) {
+  async function fetchList(params?: { page?: number; page_size?: number; category?: number; tag?: string; status?: string }) {
     loading.value = true
     try {
       const res = await articleApi.list(params)
@@ -68,7 +68,7 @@ export const useArticleStore = defineStore('article', () => {
     }
   }
 
-  async function fetchFeed(params?: { page?: number; size?: number }) {
+  async function fetchFeed(params?: { page?: number; page_size?: number }) {
     const res = await articleApi.getFeed(params)
     feed.value = res.data.items
   }

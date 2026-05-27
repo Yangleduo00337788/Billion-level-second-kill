@@ -94,12 +94,22 @@ const searchQuery = ref('')
 const prompts = ref<any[]>([])
 const loading = ref(false)
 
-const categories = ['全部', '写作', '编程', '绘画', '对话', '其他']
+const categories = ref<string[]>(['全部'])
+
+async function loadPromptCategories() {
+  try {
+    const res = await get('/articles/categories')
+    const cats = res.data || []
+    categories.value = ['全部', ...cats.map((c: any) => c.name)]
+  } catch {}
+}
+
+loadPromptCategories()
 
 async function fetchPrompts() {
   loading.value = true
   try {
-    const params: any = { page: 1, size: 20 }
+    const params: any = { page: 1, page_size: 20 }
     if (selectedCategory.value !== '全部') params.category = selectedCategory.value
     if (searchQuery.value.trim()) params.q = searchQuery.value.trim()
     const res = await get('/prompts', params)

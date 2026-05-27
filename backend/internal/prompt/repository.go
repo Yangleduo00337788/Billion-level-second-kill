@@ -33,7 +33,7 @@ func (r *Repository) Delete(id uint) error {
 	return r.db.Delete(&Prompt{}, id).Error
 }
 
-func (r *Repository) List(page, pageSize int, category, tag string) ([]Prompt, int64, error) {
+func (r *Repository) List(page, pageSize int, category, tag string, userID uint) ([]Prompt, int64, error) {
 	var prompts []Prompt
 	var total int64
 
@@ -44,6 +44,9 @@ func (r *Repository) List(page, pageSize int, category, tag string) ([]Prompt, i
 	}
 	if tag != "" {
 		query = query.Where("tags LIKE ?", "%"+tag+"%")
+	}
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
 	}
 
 	query.Count(&total)

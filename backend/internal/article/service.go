@@ -3,21 +3,32 @@ package article
 import (
 	"errors"
 
+	"inference-engine/internal/admin"
 	"inference-engine/internal/ai"
+	"inference-engine/internal/notify"
 	"inference-engine/internal/user"
 
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	repo      *Repository
-	userRepo  *user.Repository
-	aiService *ai.Service
-	db        *gorm.DB
+	repo        *Repository
+	userRepo    *user.Repository
+	aiService   *ai.Service
+	notifySvc   *notify.Service
+	auditLogSvc *admin.AuditLogService
+	db          *gorm.DB
 }
 
 func NewService(repo *Repository, userRepo *user.Repository, aiService *ai.Service, db *gorm.DB) *Service {
-	return &Service{repo: repo, userRepo: userRepo, aiService: aiService, db: db}
+	return &Service{
+		repo:        repo,
+		userRepo:    userRepo,
+		aiService:   aiService,
+		notifySvc:   notify.NewService(db),
+		auditLogSvc: admin.NewAuditLogService(db),
+		db:          db,
+	}
 }
 
 type CreateArticleReq struct {
@@ -41,20 +52,28 @@ type UpdateArticleReq struct {
 }
 
 func (s *Service) Create(userID uint, req *CreateArticleReq) (*Article, error) {
+	tags := req.Tags
+	if tags == "" {
+		tags = "[]"
+	}
+
 	article := &Article{
-		UserID:     userID,
-		Title:      req.Title,
-		Content:    req.Content,
-		Summary:    req.Summary,
-		Cover:      req.Cover,
-		Status:     req.Status,
-		CategoryID: req.CategoryID,
-		Tags:       req.Tags,
-		IsAI:       false,
+		UserID:  userID,
+		Title:   req.Title,
+		Content: req.Content,
+		Summary: req.Summary,
+		Cover:   req.Cover,
+		Status:  req.Status,
+		Tags:    tags,
+		IsAI:    false,
+	}
+	if req.CategoryID > 0 {
+		catID := req.CategoryID
+		article.CategoryID = &catID
 	}
 
 	if article.Status == "" {
-		article.Status = "draft"
+		article.Status = "published"
 	}
 
 	if article.Summary == "" && article.Content != "" {
@@ -70,6 +89,9 @@ func (s *Service) Create(userID uint, req *CreateArticleReq) (*Article, error) {
 	}
 
 	s.db.Model(&user.User{}).Where("id = ?", userID).UpdateColumn("article_count", gorm.Expr("article_count + 1"))
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "创建文章", "article", article.Title)
 
 	return article, nil
 }
@@ -100,26 +122,39 @@ func (s *Service) Update(id uint, userID uint, req *UpdateArticleReq) (*Article,
 		article.Status = req.Status
 	}
 	if req.CategoryID != 0 {
-		article.CategoryID = req.CategoryID
+		catID := req.CategoryID
+		article.CategoryID = &catID
 	}
 	if req.Tags != "" {
 		article.Tags = req.Tags
+	} else if article.Tags == "" {
+		article.Tags = "[]"
 	}
 
 	if err := s.repo.Update(article); err != nil {
 		return nil, err
 	}
 
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "编辑文章", "article", article.Title)
+
 	return article, nil
 }
 
-func (s *Service) GetByID(id uint) (*Article, error) {
+func (s *Service) GetByID(id uint, userID uint) (*Article, error) {
 	article, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("article not found")
 	}
 
 	s.repo.IncrementViewCount(id)
+
+	if userID > 0 {
+		liked, favorited := s.repo.GetUserInteraction(userID, id)
+		article.Liked = liked
+		article.Favorited = favorited
+	}
+
 	return article, nil
 }
 
@@ -155,6 +190,10 @@ func (s *Service) Delete(id, userID uint) error {
 	}
 
 	s.db.Model(&user.User{}).Where("id = ?", userID).UpdateColumn("article_count", gorm.Expr("article_count - 1"))
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "删除文章", "article", article.Title)
+
 	return nil
 }
 
@@ -181,12 +220,26 @@ func (s *Service) LikeArticle(userID, articleID uint) error {
 	}
 
 	s.repo.IncrementLikeCount(articleID)
-	_ = article
+
+	// Trigger notification to article author
+	if article.UserID != userID {
+		go s.notifySvc.Create(&notify.CreateNotifyReq{
+			UserID:   article.UserID,
+			ActorID:  userID,
+			Type:     "like",
+			Content:  "点赞了你的文章",
+			TargetID: articleID,
+		})
+	}
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "点赞文章", "article", article.Title)
+
 	return nil
 }
 
 func (s *Service) FavoriteArticle(userID, articleID uint) error {
-	_, err := s.repo.FindByID(articleID)
+	article, err := s.repo.FindByID(articleID)
 	if err != nil {
 		return errors.New("article not found")
 	}
@@ -205,8 +258,11 @@ func (s *Service) FavoriteArticle(userID, articleID uint) error {
 	if err := s.repo.CreateFavorite(fav); err != nil {
 		return err
 	}
-
 	s.repo.IncrementFavoriteCount(articleID)
+
+	// Audit log
+	go s.auditLogSvc.LogUserAction(userID, "收藏文章", "article", article.Title)
+
 	return nil
 }
 
@@ -227,4 +283,8 @@ func (s *Service) GetFeed(userID uint, page, pageSize int) ([]Article, int64, er
 
 func (s *Service) SearchTitle(keyword string, page, pageSize int) ([]Article, int64, error) {
 	return s.repo.SearchTitle(keyword, page, pageSize)
+}
+
+func (s *Service) ListCategories() ([]Category, error) {
+	return s.repo.ListCategories()
 }

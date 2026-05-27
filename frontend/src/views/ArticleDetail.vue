@@ -1,5 +1,15 @@
 <template>
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+  <div class="max-w-[1200px] mx-auto px-6 lg:px-10 py-6 sm:py-8">
+    <button
+      class="mb-4 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-dark transition-colors glass-button px-3 py-1.5 rounded-xl"
+      @click="goBack"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      返回
+    </button>
+
     <div v-if="!article" class="text-center py-20 text-gray-400">
       <n-spin size="large" />
     </div>
@@ -140,6 +150,15 @@ function scrollToHeading(id: string) {
   if (el) el.scrollIntoView({ behavior: 'smooth' })
 }
 
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/')
+  }
+}
+
+
 function goToUser(userId: number) {
   router.push(`/user/${userId}`)
 }
@@ -154,18 +173,18 @@ function shareArticle() {
 }
 
 async function handleLike() {
-  if (!article.value) return
+  if (!article.value || !userStore.isAuthenticated) { message.warning('请先登录'); return }
   try {
-    await articleStore.like(article.value.id)
+    await post(`/articles/${article.value.id}/like`)
     article.value.liked = !article.value.liked
     article.value.like_count += article.value.liked ? 1 : -1
   } catch {}
 }
 
 async function handleFavorite() {
-  if (!article.value) return
+  if (!article.value || !userStore.isAuthenticated) { message.warning('请先登录'); return }
   try {
-    await articleStore.favorite(article.value.id)
+    await post(`/articles/${article.value.id}/favorite`)
     article.value.favorited = !article.value.favorited
     article.value.favorite_count += article.value.favorited ? 1 : -1
   } catch {}

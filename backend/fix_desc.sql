@@ -1,0 +1,1 @@
+ALTER TABLE system_configs MODIFY COLUMN `desc` VARCHAR(200) COMMENT '说明';

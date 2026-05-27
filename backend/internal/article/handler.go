@@ -66,7 +66,8 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	article, err := h.svc.GetByID(uint(id))
+	userID := middleware.GetUserID(c)
+	article, err := h.svc.GetByID(uint(id), userID)
 	if err != nil {
 		response.Error(c, response.ErrNotFound, err.Error())
 		return
@@ -184,10 +185,20 @@ func (h *Handler) Feed(c *gin.Context) {
 	response.Success(c, articles)
 }
 
+func (h *Handler) ListCategories(c *gin.Context) {
+	categories, err := h.svc.ListCategories()
+	if err != nil {
+		response.Error(c, response.ErrInternal, err.Error())
+		return
+	}
+	response.Success(c, categories)
+}
+
 func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 	articles := r.Group("/articles")
 	{
 		articles.GET("", handler.List)
+		articles.GET("/categories", handler.ListCategories)
 		articles.GET("/hot", handler.Hot)
 		articles.GET("/feed", middleware.Auth(), handler.Feed)
 		articles.GET("/:id", handler.GetByID)

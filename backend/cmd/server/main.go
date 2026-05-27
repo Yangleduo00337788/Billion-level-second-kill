@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -23,13 +24,15 @@ func main() {
 	config.Init()
 	cfg := config.Get()
 
-	log.SetOutput(&lumberjack.Logger{
+	// 同时输出到文件和控制台（GoLand Run窗口可见）
+	lumberjackLogger := &lumberjack.Logger{
 		Filename:   "./logs/app.log",
 		MaxSize:    100,
 		MaxBackups: 3,
 		MaxAge:     28,
 		Compress:   true,
-	})
+	}
+	log.SetOutput(io.MultiWriter(os.Stdout, lumberjackLogger))
 
 	db := database.InitMySQL(&cfg.Database)
 
@@ -39,7 +42,7 @@ func main() {
 		defer rdb.Close()
 	}
 
-	aiService := ai.NewService(&cfg.AI)
+	aiService := ai.NewService(db)
 
 	r := router.SetupRouter(db, rdb, aiService)
 

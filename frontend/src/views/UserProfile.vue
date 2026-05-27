@@ -1,5 +1,6 @@
 <template>
-  <div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="page-wrapper">
+    <div class="max-w-[1100px] mx-auto px-6 lg:px-10 py-8">
     <div v-if="loading" class="text-center py-20"><n-spin size="large" /></div>
     <template v-else-if="profile">
       <div class="bg-white rounded-2xl border border-gray-100 p-6 lg:p-8 mb-6">
@@ -62,9 +63,9 @@
         </div>
       </div>
     </template>
-  </div>
+    </div>
 
-  <n-modal v-model:show="showEditModal" title="编辑资料" preset="card" style="width: 420px;" closable>
+    <n-modal v-model:show="showEditModal" title="编辑资料" preset="card" style="width: 420px;" closable>
     <n-form>
       <n-form-item label="用户名" required>
         <n-input v-model:value="editForm.username" />
@@ -82,7 +83,8 @@
         <n-button type="primary" :loading="saving" @click="saveProfile">保存</n-button>
       </div>
     </template>
-  </n-modal>
+    </n-modal>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -200,5 +202,18 @@ async function saveProfile() {
   finally { saving.value = false }
 }
 
-onMounted(() => { fetchProfile(); fetchArticles() })
+watch(() => route.params.id, () => {
+  fetchProfile()
+  fetchArticles()
+  activeTab.value = 'articles'
+})
+
+onMounted(() => {
+  fetchProfile()
+  const tab = route.query.tab as string
+  if (tab && ['articles', 'prompts', 'favorites'].includes(tab)) {
+    activeTab.value = tab
+  }
+  fetchArticles()
+})
 </script>

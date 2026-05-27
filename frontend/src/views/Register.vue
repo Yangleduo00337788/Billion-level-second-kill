@@ -1,13 +1,13 @@
 <template>
   <div class="min-h-screen flex items-center justify-center px-4">
     <div class="w-full max-w-sm">
-      <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
-        <div class="text-center mb-8">
+      <div class="glass-card p-8">
+        <div class="text-center mb-8 relative z-10">
           <h1 class="text-2xl font-bold text-dark tracking-tight">推理引擎</h1>
           <p class="text-sm text-gray-400 mt-2">创建你的账号</p>
         </div>
 
-        <n-form ref="formRef" :model="formData" :rules="rules" @submit.prevent="handleRegister">
+        <n-form ref="formRef" :model="formData" :rules="rules" @submit.prevent="handleRegister" class="relative z-10">
           <n-form-item path="username" label="用户名">
             <n-input
               v-model:value="formData.username"
@@ -44,19 +44,17 @@
             />
           </n-form-item>
 
-          <n-button
-            type="primary"
-            size="large"
-            block
-            :loading="loading"
-            attr-type="submit"
-            class="mt-2"
+          <button
+            type="submit"
+            class="glass-button-primary w-full py-3 text-sm font-medium mt-2"
+            :class="{ 'opacity-60 pointer-events-none': loading }"
+            @click="handleRegister"
           >
-            注册
-          </n-button>
+            {{ loading ? '注册中...' : '注册' }}
+          </button>
         </n-form>
 
-        <div class="text-center mt-6">
+        <div class="text-center mt-6 relative z-10">
           <span class="text-sm text-gray-400">已有账号？</span>
           <router-link to="/login" class="text-sm text-primary ml-1 hover:underline">
             立即登录

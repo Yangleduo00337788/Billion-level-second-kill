@@ -1,8 +1,8 @@
 import { get, post, put, del } from './request'
-import type { ApiResponse, Article, PaginatedData } from '@/types/api'
+import type { ApiResponse, Article, PaginatedData, Category } from '@/types/api'
 
 export const articleApi = {
-  list(params?: { page?: number; size?: number; category?: number; tag?: string; status?: string }) {
+  list(params?: { page?: number; page_size?: number; category?: number; tag?: string; status?: string }) {
     return get<PaginatedData<Article>>('/articles', params)
   },
 
@@ -34,7 +34,10 @@ export const articleApi = {
     return get<Article[]>('/articles/hot')
   },
 
-  getFeed(params?: { page?: number; size?: number }) {
+  getFeed(params?: { page?: number; page_size?: number }) {
     return get<PaginatedData<Article>>('/articles/feed', params)
+  },
+  getCategories() {
+    return get<Category[]>('/articles/categories')
   }
 }

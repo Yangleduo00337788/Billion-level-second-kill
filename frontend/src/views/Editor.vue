@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-7xl mx-auto px-4 py-6 h-[calc(100vh-4rem)]">
+  <div class="max-w-[1440px] mx-auto px-6 lg:px-10 py-6 h-[calc(100vh-4rem)]">
     <div class="bg-white rounded-2xl border border-gray-100 h-full flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-4 lg:px-6 py-3 border-b border-gray-100 bg-white">
         <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -15,9 +15,9 @@
           <n-select
             v-model:value="categoryId"
             :options="categoryOptions"
-            placeholder="分类"
+            placeholder="选择分类"
             size="small"
-            class="w-28 lg:w-32"
+            style="min-width: 120px; max-width: none;"
             clearable
           />
           <n-button size="small" quaternary @click="generateTitle" class="hidden sm:inline-flex">
@@ -66,7 +66,7 @@
             <n-button size="tiny" quaternary @click="insertMarkdown('[', '](url)')">
               Link
             </n-button>
-            <n-button size="tiny" quaternary @click="insertMarkdown('```\n', '\n```')">
+            <n-button size="tiny" quaternary @click="insertCode">
               Code
             </n-button>
             <n-button size="tiny" quaternary @click="insertMarkdown('> ', '')">
@@ -100,6 +100,7 @@ import type { UploadFileInfo } from 'naive-ui'
 import { marked } from 'marked'
 import { useArticleStore } from '@/stores/article'
 import { post } from '@/api/request'
+import { articleApi } from '@/api/article'
 
 const route = useRoute()
 const router = useRouter()
@@ -114,7 +115,7 @@ const articleId = ref<number | null>(null)
 const coverUrl = ref('')
 
 const uploadHeaders = computed(() => ({
-  Authorization: `Bearer ${localStorage.getItem('token')}`
+  Authorization: 'Bearer ' + localStorage.getItem('token')
 }))
 
 function handleUploadFinish({ file }: { file: UploadFileInfo }) {
@@ -122,20 +123,21 @@ function handleUploadFinish({ file }: { file: UploadFileInfo }) {
   if (resp) {
     const url = resp.url || resp.data?.url
     if (url) {
-      const imgTag = `![${file.name || 'image'}](${url})\n`
+      const imgTag = '![' + (file.name || 'image') + '](' + url + ')\n'
       content.value += imgTag
       message.success('图片已插入')
     }
   }
 }
 
-const categoryOptions = [
-  { label: '技术', value: 1 },
-  { label: 'AI', value: 2 },
-  { label: '产品', value: 3 },
-  { label: '设计', value: 4 },
-  { label: '随笔', value: 5 }
-]
+const categoryOptions = ref<Array<{ label: string; value: number }>>([])
+
+async function loadCategories() {
+  try {
+    const res = await articleApi.getCategories()
+    categoryOptions.value = (res.data || []).map((c: any) => ({ label: c.name, value: c.id }))
+  } catch {}
+}
 
 const renderedContent = computed(() => {
   if (!content.value) return '<p style="color: #9ca3af; text-align: center; padding-top: 4rem;">预览区域</p>'
@@ -156,6 +158,10 @@ function insertMarkdown(before: string, after: string) {
   textarea.focus()
   const newPos = start + before.length
   textarea.setSelectionRange(newPos, newPos + selected.length)
+}
+
+function insertCode() {
+  insertMarkdown('```\n', '\n```')
 }
 
 async function handlePublish() {
@@ -182,6 +188,12 @@ async function handlePublish() {
       await articleStore.create(data)
       message.success('发布成功')
     }
+    localStorage.removeItem('editor-draft')
+    title.value = ''
+    content.value = ''
+    categoryId.value = null
+    coverUrl.value = ''
+    articleId.value = null
     router.push('/')
   } catch {
     // handled by interceptor
@@ -200,7 +212,7 @@ async function generateTitle() {
     return
   }
   try {
-    const res = await post<{ title: string }>('/api/v1/ai/generate-title', { content: content.value.slice(0, 2000) })
+    const res = await post<{ title: string }>('/ai/generate-title', { content: content.value.slice(0, 2000) })
     if (res.data.title) {
       title.value = res.data.title
       message.success('标题已生成')
@@ -216,9 +228,9 @@ async function generateSummary() {
     return
   }
   try {
-    const res = await post<{ summary: string }>('/api/v1/ai/generate-summary', { content: content.value.slice(0, 3000) })
+    const res = await post<{ summary: string }>('/ai/generate-summary', { content: content.value.slice(0, 3000) })
     if (res.data.summary) {
-      content.value = `> ${res.data.summary}\n\n${content.value}`
+      content.value = '> ' + res.data.summary + '\n\n' + content.value
       message.success('摘要已生成')
     }
   } catch {
@@ -227,6 +239,7 @@ async function generateSummary() {
 }
 
 onMounted(async () => {
+  loadCategories()
   const draft = localStorage.getItem('editor-draft')
   if (draft && !route.params.id) {
     try {
