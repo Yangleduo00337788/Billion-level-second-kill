@@ -1,6 +1,7 @@
 ﻿package router
 
 import (
+	"net"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,19 @@ import (
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
+
+func normalizeIP(ip string) string {
+	if ip == "::1" {
+		return "127.0.0.1"
+	}
+	parsed := net.ParseIP(ip)
+	if parsed != nil {
+		if v4 := parsed.To4(); v4 != nil {
+			return v4.String()
+		}
+	}
+	return ip
+}
 
 func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Engine {
 	cfg := config.Get()

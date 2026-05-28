@@ -297,6 +297,8 @@ func (s *Service) createProvider(cfg AIConfig) AIProvider {
 		baseURL := cfg.BaseURL
 		if baseURL == "" {
 			baseURL = "https://api.deepseek.com/v1"
+		} else if !strings.HasSuffix(baseURL, "/v1") {
+			baseURL = strings.TrimRight(baseURL, "/") + "/v1"
 		}
 		return NewOpenAIProvider(cfg.APIKey, baseURL)
 	default: // openai 兼容
