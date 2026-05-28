@@ -1,4 +1,4 @@
-package prompt
+﻿package prompt
 
 import (
 	"gorm.io/gorm"
@@ -33,7 +33,7 @@ func (r *Repository) Delete(id uint) error {
 	return r.db.Delete(&Prompt{}, id).Error
 }
 
-func (r *Repository) List(page, pageSize int, category, tag string, userID uint) ([]Prompt, int64, error) {
+func (r *Repository) List(page, pageSize int, category, tag string, userID uint, keyword string) ([]Prompt, int64, error) {
 	var prompts []Prompt
 	var total int64
 
@@ -47,6 +47,9 @@ func (r *Repository) List(page, pageSize int, category, tag string, userID uint)
 	}
 	if userID > 0 {
 		query = query.Where("user_id = ?", userID)
+	}
+	if keyword != "" {
+		query = query.Where("title LIKE ?", "%"+keyword+"%")
 	}
 
 	query.Count(&total)
@@ -81,3 +84,48 @@ func (r *Repository) SearchTitle(keyword string, page, pageSize int) ([]Prompt, 
 	err := query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&prompts).Error
 	return prompts, total, err
 }
+
+func (r *Repository) IncrementLikeCount(id uint) error {
+	return r.db.Model(&Prompt{}).Where("id = ?", id).UpdateColumn("like_count", gorm.Expr("like_count + 1")).Error
+}
+
+func (r *Repository) DecrementLikeCount(id uint) error {
+	return r.db.Model(&Prompt{}).Where("id = ?", id).UpdateColumn("like_count", gorm.Expr("like_count - 1")).Error
+}
+
+func (r *Repository) IncrementFavoriteCount(id uint) error {
+	return r.db.Model(&Prompt{}).Where("id = ?", id).UpdateColumn("favorite_count", gorm.Expr("favorite_count + 1")).Error
+}
+
+func (r *Repository) DecrementFavoriteCount(id uint) error {
+	return r.db.Model(&Prompt{}).Where("id = ?", id).UpdateColumn("favorite_count", gorm.Expr("favorite_count - 1")).Error
+}
+
+func (r *Repository) IsLiked(userID, promptID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&PromptLike{}).Where("user_id = ? AND prompt_id = ?", userID, promptID).Count(&count).Error
+	return count > 0, err
+}
+
+func (r *Repository) CreateLike(like *PromptLike) error {
+	return r.db.Create(like).Error
+}
+
+func (r *Repository) DeleteLike(userID, promptID uint) error {
+	return r.db.Unscoped().Where("user_id = ? AND prompt_id = ?", userID, promptID).Delete(&PromptLike{}).Error
+}
+
+func (r *Repository) IsFavorited(userID, promptID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&PromptFavorite{}).Where("user_id = ? AND prompt_id = ?", userID, promptID).Count(&count).Error
+	return count > 0, err
+}
+
+func (r *Repository) CreateFavorite(fav *PromptFavorite) error {
+	return r.db.Create(fav).Error
+}
+
+func (r *Repository) DeleteFavorite(userID, promptID uint) error {
+	return r.db.Unscoped().Where("user_id = ? AND prompt_id = ?", userID, promptID).Delete(&PromptFavorite{}).Error
+}
+

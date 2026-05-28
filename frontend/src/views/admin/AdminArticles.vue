@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div>
     <h1 class="text-2xl font-bold text-dark mb-6">文章管理</h1>
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -31,7 +31,7 @@ const columns: DataTableColumns<any> = [
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { title: '作者ID', key: 'user_id', width: 70 },
   { title: '状态', key: 'status', width: 80, render: (row) => h(NTag, { size: 'small', type: row.status === 'published' ? 'success' : 'default', bordered: false }, () => row.status === 'published' ? '已发布' : '草稿') },
-  { title: '阅读', key: 'view_count', width: 60 },
+  { title: '浏览', key: 'view_count', width: 60 },
   { title: '点赞', key: 'like_count', width: 60 },
   { title: '评论', key: 'comment_count', width: 60 },
   { title: 'AI', key: 'is_ai', width: 50, render: (row) => row.is_ai ? h('span', { class: 'text-xs text-orange-500 font-medium' }, 'AI') : '' },

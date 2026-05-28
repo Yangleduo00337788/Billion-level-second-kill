@@ -14,6 +14,7 @@ import (
 	"inference-engine/internal/ai"
 	"inference-engine/internal/config"
 	"inference-engine/internal/pkg/database"
+	"inference-engine/internal/pkg/syslog"
 	"inference-engine/internal/router"
 
 	"github.com/go-redis/redis/v8"
@@ -36,10 +37,16 @@ func main() {
 
 	db := database.InitMySQL(&cfg.Database)
 
+	// Initialize system logger
+	syslog.Init(db)
+	syslog.Info("系统启动成功", "server")
+	syslog.Info("数据库连接成功", "database")
+
 	var rdb *redis.Client
 	if cfg.Redis.Host != "" {
 		rdb = database.InitRedis(&cfg.Redis)
 		defer rdb.Close()
+		syslog.Info("Redis连接成功", "redis")
 	}
 
 	aiService := ai.NewService(db)
@@ -63,6 +70,7 @@ func main() {
 	<-quit
 
 	log.Println("shutting down server...")
+	syslog.Info("系统正在关闭", "server")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

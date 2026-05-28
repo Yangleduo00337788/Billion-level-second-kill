@@ -324,6 +324,13 @@ func (s *Service) GetConfig() AIConfig {
 	return cfg
 }
 
+// HasAPIKey 检查是否配置了 API Key
+func (s *Service) HasAPIKey() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cfg.APIKey != ""
+}
+
 func (s *Service) rateLimit() {
 	s.rateMu.Lock()
 	defer s.rateMu.Unlock()
@@ -361,11 +368,23 @@ func (s *Service) getModel() string {
 }
 
 func (s *Service) ChatCompletion(messages []Message) (*AIResponse, error) {
+	s.mu.RLock()
+	apiKey := s.cfg.APIKey
+	s.mu.RUnlock()
+	if apiKey == "" {
+		return nil, fmt.Errorf("AI API key not configured. Please set ai_api_key in admin panel")
+	}
 	s.rateLimit()
 	return s.getProvider().ChatCompletion(messages, s.getModel())
 }
 
 func (s *Service) StreamChatCompletion(messages []Message) (<-chan string, error) {
+	s.mu.RLock()
+	apiKey := s.cfg.APIKey
+	s.mu.RUnlock()
+	if apiKey == "" {
+		return nil, fmt.Errorf("AI API key not configured. Please set ai_api_key in admin panel")
+	}
 	s.rateLimit()
 	return s.getProvider().StreamChatCompletion(messages, s.getModel())
 }

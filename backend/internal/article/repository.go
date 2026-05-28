@@ -1,4 +1,4 @@
-package article
+﻿package article
 
 import (
 	"gorm.io/gorm"
@@ -33,7 +33,7 @@ func (r *Repository) Delete(id uint) error {
 	return r.db.Delete(&Article{}, id).Error
 }
 
-func (r *Repository) List(page, pageSize int, conditions map[string]interface{}) ([]Article, int64, error) {
+func (r *Repository) List(page, pageSize int, conditions map[string]interface{}, keyword string) ([]Article, int64, error) {
 	var articles []Article
 	var total int64
 
@@ -47,6 +47,9 @@ func (r *Repository) List(page, pageSize int, conditions map[string]interface{})
 	}
 	if userID, ok := conditions["user_id"]; ok {
 		query = query.Where("user_id = ?", userID)
+	}
+	if keyword != "" {
+		query = query.Where("title LIKE ?", "%"+keyword+"%")
 	}
 
 	query.Count(&total)
@@ -193,3 +196,4 @@ func (r *Repository) GetUserInteraction(userID, articleID uint) (liked bool, fav
 	favorited = favCount > 0
 	return
 }
+

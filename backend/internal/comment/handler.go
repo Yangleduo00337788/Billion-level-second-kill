@@ -32,7 +32,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	comment, err := h.svc.Create(userID, uint(articleID), &req)
+	ip := c.ClientIP()
+	comment, err := h.svc.Create(userID, uint(articleID), &req, ip)
 	if err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
@@ -77,7 +78,8 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Delete(uint(commentID), userID); err != nil {
+	ip := c.ClientIP()
+	if err := h.svc.Delete(uint(commentID), userID, ip); err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}

@@ -1,4 +1,4 @@
-package prompt
+﻿package prompt
 
 import (
 	"errors"
@@ -102,8 +102,8 @@ func (s *Service) GetByID(id uint) (*Prompt, error) {
 	return prompt, nil
 }
 
-func (s *Service) List(page, pageSize int, category, tag string, userID uint) ([]Prompt, int64, error) {
-	return s.repo.List(page, pageSize, category, tag, userID)
+func (s *Service) List(page, pageSize int, category, tag string, userID uint, keyword string) ([]Prompt, int64, error) {
+	return s.repo.List(page, pageSize, category, tag, userID, keyword)
 }
 
 func (s *Service) Delete(id, userID uint) error {
@@ -125,3 +125,48 @@ func (s *Service) GetHot(limit int) ([]Prompt, error) {
 	}
 	return s.repo.GetHot(limit)
 }
+
+func (s *Service) Like(userID, promptID uint) error {
+	prompt, err := s.repo.FindByID(promptID)
+	if err != nil {
+		return errors.New("prompt not found")
+	}
+
+	liked, _ := s.repo.IsLiked(userID, promptID)
+	if liked {
+		s.repo.DeleteLike(userID, promptID)
+		s.repo.DecrementLikeCount(promptID)
+		return nil
+	}
+
+	like := &PromptLike{UserID: userID, PromptID: promptID}
+	if err := s.repo.CreateLike(like); err != nil {
+		return err
+	}
+	s.repo.IncrementLikeCount(promptID)
+
+	_ = prompt // suppress unused warning
+	return nil
+}
+
+func (s *Service) Favorite(userID, promptID uint) error {
+	_, err := s.repo.FindByID(promptID)
+	if err != nil {
+		return errors.New("prompt not found")
+	}
+
+	favorited, _ := s.repo.IsFavorited(userID, promptID)
+	if favorited {
+		s.repo.DeleteFavorite(userID, promptID)
+		s.repo.DecrementFavoriteCount(promptID)
+		return nil
+	}
+
+	fav := &PromptFavorite{UserID: userID, PromptID: promptID}
+	if err := s.repo.CreateFavorite(fav); err != nil {
+		return err
+	}
+	s.repo.IncrementFavoriteCount(promptID)
+	return nil
+}
+

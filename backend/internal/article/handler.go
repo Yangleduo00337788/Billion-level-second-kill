@@ -1,4 +1,4 @@
-package article
+﻿package article
 
 import (
 	"strconv"
@@ -26,7 +26,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	article, err := h.svc.Create(userID, &req)
+	ip := c.ClientIP()
+	article, err := h.svc.Create(userID, &req, ip)
 	if err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
@@ -41,6 +42,7 @@ func (h *Handler) List(c *gin.Context) {
 	status := c.Query("status")
 	categoryID, _ := strconv.ParseUint(c.Query("category"), 10, 64)
 	userIDFilter, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	keyword := c.Query("keyword")
 
 	if page < 1 {
 		page = 1
@@ -49,7 +51,7 @@ func (h *Handler) List(c *gin.Context) {
 		pageSize = 10
 	}
 
-	articles, total, err := h.svc.List(page, pageSize, status, uint(categoryID), uint(userIDFilter))
+	articles, total, err := h.svc.List(page, pageSize, status, uint(categoryID), uint(userIDFilter), keyword)
 	if err != nil {
 		response.Error(c, response.ErrInternal, err.Error())
 		return
@@ -91,7 +93,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	article, err := h.svc.Update(uint(id), userID, &req)
+	ip := c.ClientIP()
+	article, err := h.svc.Update(uint(id), userID, &req, ip)
 	if err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
@@ -109,7 +112,8 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Delete(uint(id), userID); err != nil {
+	ip := c.ClientIP()
+	if err := h.svc.Delete(uint(id), userID, ip); err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}
@@ -126,7 +130,8 @@ func (h *Handler) Like(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.LikeArticle(userID, uint(id)); err != nil {
+	ip := c.ClientIP()
+	if err := h.svc.LikeArticle(userID, uint(id), ip); err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}
@@ -143,7 +148,8 @@ func (h *Handler) Favorite(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.FavoriteArticle(userID, uint(id)); err != nil {
+	ip := c.ClientIP()
+	if err := h.svc.FavoriteArticle(userID, uint(id), ip); err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}
@@ -209,3 +215,4 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 		articles.POST("/:id/favorite", middleware.Auth(), handler.Favorite)
 	}
 }
+

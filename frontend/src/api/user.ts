@@ -26,11 +26,11 @@ export const userApi = {
     return post<void>(`/user/${id}/follow`)
   },
 
-  getFollowers(id: number, params?: { page?: number; size?: number }) {
+  getFollowers(id: number, params?: { page?: number; page_size?: number }) {
     return get<PaginatedData<User>>(`/user/${id}/followers`, params)
   },
 
-  getFollowing(id: number, params?: { page?: number; size?: number }) {
+  getFollowing(id: number, params?: { page?: number; page_size?: number }) {
     return get<PaginatedData<User>>(`/user/${id}/following`, params)
   },
 
@@ -38,7 +38,7 @@ export const userApi = {
     return del<void>(`/user/${id}/follow`)
   },
 
-  getUserArticles(id: number, params?: { page?: number; size?: number; status?: string }) {
+  getUserArticles(id: number, params?: { page?: number; page_size?: number; status?: string }) {
     return get<PaginatedData<Article>>(`/user/${id}/articles`, params)
   }
 }

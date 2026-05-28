@@ -1,17 +1,39 @@
-package middleware
+﻿package middleware
 
 import (
 	"bytes"
 	"io"
+	"net"
 	"strings"
-	"time"
 
 	"inference-engine/internal/admin"
 	"inference-engine/internal/pkg/jwt"
 	"inference-engine/internal/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
+
+// normalizeIP converts IPv6 loopback to IPv4 format
+func normalizeIP(ip string) string {
+	if ip == "::1" {
+		return "127.0.0.1"
+	}
+	// Try to parse and convert IPv6 to IPv4 if possible
+	parsed := net.ParseIP(ip)
+	if parsed != nil {
+		if v4 := parsed.To4(); v4 != nil {
+			return v4.String()
+		}
+	}
+	return ip
+}
+
+var globalDB *gorm.DB
+
+func SetGlobalDB(db *gorm.DB) {
+	globalDB = db
+}
 
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -38,6 +60,17 @@ func Auth() gin.HandlerFunc {
 
 		c.Set("userID", claims.UserID)
 		c.Set("role", claims.Role)
+		c.Set("clientIP", normalizeIP(c.ClientIP()))
+
+		// Look up username and cache it
+		if globalDB != nil && claims.UserID > 0 {
+			var username string
+			globalDB.Table("users").Where("id = ?", claims.UserID).Pluck("username", &username)
+			if username != "" {
+				c.Set("username", username)
+			}
+		}
+
 		c.Next()
 	}
 }
@@ -50,12 +83,28 @@ func GetUserID(c *gin.Context) uint {
 	return userID.(uint)
 }
 
+func GetUsername(c *gin.Context) string {
+	username, exists := c.Get("username")
+	if !exists {
+		return ""
+	}
+	return username.(string)
+}
+
 func GetRole(c *gin.Context) string {
 	role, exists := c.Get("role")
 	if !exists {
 		return ""
 	}
 	return role.(string)
+}
+
+func GetClientIP(c *gin.Context) string {
+	ip, exists := c.Get("clientIP")
+	if !exists {
+		return ""
+	}
+	return ip.(string)
 }
 
 func AdminOnly() gin.HandlerFunc {
@@ -86,25 +135,19 @@ func AdminAuditLog(handler *admin.Handler) gin.HandlerFunc {
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
 
-		start := time.Now()
 		c.Next()
-		duration := time.Since(start)
 
 		// Get user info
 		userID := GetUserID(c)
-		username := ""
-		if u, exists := c.Get("username"); exists {
-			username = u.(string)
-		}
+		username := GetUsername(c)
 
-		// Create audit log
+		// Create audit log with IP
 		action := c.Request.Method + " " + c.Request.URL.Path
 		target := c.Request.URL.String()
 		detail := string(bodyBytes)
-		if duration > 0 {
-			detail += " | duration: " + time.Since(start).String()
-		}
+		ip := normalizeIP(c.ClientIP())
 
-		go handler.CreateAuditLog(userID, username, action, target, detail, c.ClientIP())
+		go handler.CreateAuditLog(userID, username, action, target, detail, ip)
 	}
 }
+

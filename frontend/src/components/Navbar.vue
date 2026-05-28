@@ -12,7 +12,7 @@
           <svg class="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
           </svg>
-          <span class="text-lg font-bold text-dark tracking-tight relative z-10">推理引擎</span>
+          <span class="text-lg font-bold text-dark tracking-tight relative z-10">{{ siteName }}</span>
         </router-link>
         <div class="hidden md:flex items-center gap-1">
           <router-link
@@ -100,6 +100,12 @@
         </n-dropdown>
 
         <template v-if="userStore.isAuthenticated && userStore.user">
+          <div class="flex items-center gap-1 px-2 py-1 bg-yellow-50 rounded-full" :title="`${userStore.user.points || 0} 积分`">
+            <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <span class="text-sm font-medium text-yellow-700">{{ userStore.user.points || 0 }}</span>
+          </div>
           <router-link v-if="userStore.user?.role === 'admin'" to="/admin" class="glass-nav-link text-sm text-gray-600 hover:text-dark">
             ⚙ 管理
           </router-link>
@@ -208,6 +214,16 @@ const showAnnouncements = ref(false)
 const showDetailModal = ref(false)
 const currentAnnouncement = ref<any>(null)
 const unreadCount = ref(0)
+const siteName = ref('推理引擎')
+
+async function fetchSiteConfig() {
+  try {
+    const res = await get<any>('/site-config')
+    if (res.data?.site_name) {
+      siteName.value = res.data.site_name
+    }
+  } catch {}
+}
 
 const themeOptions = [
   { key: 'light', label: '浅色模式' },
@@ -286,12 +302,15 @@ function openAnnouncement(item: any) {
 
 async function fetchAnnouncements() {
   try {
-    const res = await get<any>('/admin/announcements')
-    const items = res.data?.items || []
-    announcements.value = items.filter((i: any) => i.status === 1)
-    unreadCount.value = announcements.value.filter((i: any) => i.priority >= 1).length
+    const res = await get<any>('/announcements')
+    const items = Array.isArray(res.data) ? res.data : (res.data?.items || [])
+    announcements.value = items
+    unreadCount.value = items.filter((i: any) => i.priority >= 1).length
   } catch {}
 }
 
-onMounted(fetchAnnouncements)
+onMounted(() => {
+  fetchAnnouncements()
+  fetchSiteConfig()
+})
 </script>

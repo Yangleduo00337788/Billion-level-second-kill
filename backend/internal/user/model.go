@@ -19,6 +19,7 @@ type User struct {
 	FollowCount  int            `gorm:"default:0;comment:关注数" json:"follow_count"`
 	FansCount    int            `gorm:"default:0;comment:粉丝数" json:"fans_count"`
 	ArticleCount int            `gorm:"default:0;comment:文章数" json:"article_count"`
+	Points       int            `gorm:"default:0;comment:积分" json:"points"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index;comment:软删除时间" json:"-"`

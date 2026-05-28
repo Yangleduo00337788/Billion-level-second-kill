@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="p-6">
     <h1 class="text-2xl font-bold text-dark mb-6">举报管理</h1>
 
@@ -29,7 +29,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
-import { NButton, NTag, NSpace, useMessage } from 'naive-ui'
+import { NButton, NTag, useMessage } from 'naive-ui'
 import { get, put } from '@/api/request'
 
 const message = useMessage()
@@ -41,6 +41,9 @@ const items = ref<any[]>([])
 const currentItem = ref<any>(null)
 const handleResult = ref('')
 
+const statusLabels = ['待处理', '已处理', '已忽略']
+const statusTypes = ['warning', 'success', 'default']
+
 const columns = [
   { title: 'ID', key: 'id', width: 60 },
   { title: '类型', key: 'target_type', width: 80, render: (row: any) => h(NTag, { size: 'small' }, { default: () => row.target_type }) },
@@ -49,7 +52,7 @@ const columns = [
   { title: '举报人ID', key: 'reporter_id', width: 100 },
   {
     title: '状态', key: 'status', width: 100,
-    render: (row: any) => h(NTag, { type: ['warning', 'success', 'default'][row.status], size: 'small' }, { default: () => ['待处理', '已处理', '已忽略'][row.status] })
+    render: (row: any) => h(NTag, { type: (statusTypes[row.status] || 'default') as any, size: 'small' }, { default: () => statusLabels[row.status] || '未知' })
   },
   { title: '处理结果', key: 'result', ellipsis: { tooltip: true } },
   { title: '时间', key: 'created_at', width: 180 },

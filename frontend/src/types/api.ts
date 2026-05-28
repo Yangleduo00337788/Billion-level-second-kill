@@ -15,6 +15,7 @@ export interface User {
   follow_count: number
   fans_count: number
   article_count: number
+  points: number
   created_at: string
 }
 
@@ -92,5 +93,4 @@ export interface PaginatedData<T> {
   total: number
   page: number
   size: number
-  total_pages: number
 }

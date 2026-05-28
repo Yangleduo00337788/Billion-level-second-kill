@@ -2,10 +2,14 @@ package comment
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 
 	"inference-engine/internal/admin"
 	"inference-engine/internal/article"
 	"inference-engine/internal/notify"
+	"inference-engine/internal/pkg/points"
+	"inference-engine/internal/pkg/sensitive"
 
 	"gorm.io/gorm"
 )
@@ -15,6 +19,8 @@ type Service struct {
 	articleRepo *article.Repository
 	notifySvc   *notify.Service
 	auditLogSvc *admin.AuditLogService
+	filter      *sensitive.Filter
+	pointsSvc   *points.Service
 	db          *gorm.DB
 }
 
@@ -24,6 +30,8 @@ func NewService(repo *Repository, articleRepo *article.Repository, db *gorm.DB) 
 		articleRepo: articleRepo,
 		notifySvc:   notify.NewService(db),
 		auditLogSvc: admin.NewAuditLogService(db),
+		filter:      sensitive.NewFilter(db),
+		pointsSvc:   points.NewService(db),
 		db:          db,
 	}
 }
@@ -33,17 +41,23 @@ type CreateCommentReq struct {
 	ParentID uint   `json:"parent_id"`
 }
 
-func (s *Service) Create(userID, articleID uint, req *CreateCommentReq) (*Comment, error) {
+func (s *Service) Create(userID, articleID uint, req *CreateCommentReq, ip string) (*Comment, error) {
 	art, err := s.articleRepo.FindByID(articleID)
 	if err != nil {
 		return nil, errors.New("article not found")
+	}
+
+	// Sensitive word check
+	content, forbidden, words := s.filter.CheckContent(req.Content)
+	if forbidden {
+		return nil, fmt.Errorf("评论包含违禁词: %v", words)
 	}
 
 	comment := &Comment{
 		ArticleID: articleID,
 		UserID:    userID,
 		ParentID:  req.ParentID,
-		Content:   req.Content,
+		Content:   content,
 	}
 
 	if err := s.repo.Create(comment); err != nil {
@@ -64,7 +78,8 @@ func (s *Service) Create(userID, articleID uint, req *CreateCommentReq) (*Commen
 	}
 
 	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "评论文章", "article", art.Title)
+	go s.auditLogSvc.LogUserAction(userID, "评论文章", "article", art.Title, ip)
+	go s.pointsSvc.AwardPoints(userID, "comment")
 
 	return comment, nil
 }
@@ -73,7 +88,7 @@ func (s *Service) GetByArticleID(articleID uint, page, pageSize int) ([]Comment,
 	return s.repo.GetByArticleID(articleID, page, pageSize)
 }
 
-func (s *Service) Delete(commentID, userID uint) error {
+func (s *Service) Delete(commentID, userID uint, ip string) error {
 	comment, err := s.repo.FindByID(commentID)
 	if err != nil {
 		return errors.New("comment not found")
@@ -90,7 +105,7 @@ func (s *Service) Delete(commentID, userID uint) error {
 	s.articleRepo.DecrementCommentCount(comment.ArticleID)
 
 	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "删除评论", "comment", "评论ID: "+string(rune(commentID)))
+	go s.auditLogSvc.LogUserAction(userID, "删除评论", "comment", "评论ID: "+strconv.FormatUint(uint64(commentID), 10), ip)
 
 	return nil
 }

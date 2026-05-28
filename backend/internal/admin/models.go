@@ -1,6 +1,7 @@
-package admin
+﻿package admin
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -58,7 +59,7 @@ type AIUsageStat struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
-// New models for extended features
+// Extended models
 
 type UserBan struct {
 	ID        uint       `gorm:"primarykey" json:"id"`
@@ -112,6 +113,8 @@ type PointsRule struct {
 	Action    string    `gorm:"size:50;not null;uniqueIndex" json:"action"`
 	Points    int       `gorm:"not null" json:"points"`
 	Desc      string    `gorm:"size:200" json:"desc"`
+	LimitType string    `gorm:"size:20;default:unlimited" json:"limit_type"`
+	Status    int       `gorm:"default:1" json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -128,17 +131,24 @@ type InviteCode struct {
 }
 
 type LoginLog struct {
-	ID        uint      `gorm:"primarykey" json:"id"`
-	UserID    uint      `gorm:"index;not null" json:"user_id"`
-	IP        string    `gorm:"size:50" json:"ip"`
-	UserAgent string    `gorm:"size:500" json:"user_agent"`
-	Status    int       `gorm:"default:1;comment:1=成功 0=失败" json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         uint       `gorm:"primarykey" json:"id"`
+	UserID     uint       `gorm:"index;not null" json:"user_id"`
+	Username   string     `gorm:"size:50" json:"username"`
+	IP         string     `gorm:"size:50" json:"ip"`
+	UserAgent  string     `gorm:"size:500" json:"user_agent"`
+	DeviceType string     `gorm:"size:20" json:"device_type"`
+	Browser    string     `gorm:"size:50" json:"browser"`
+	OS         string     `gorm:"size:50" json:"os"`
+	Status     int        `gorm:"default:1;comment:1=成功 0=失败" json:"status"`
+	LogoutAt   *time.Time `json:"logout_at"`
+	CreatedAt  time.Time  `json:"created_at"`
 }
 
 type IPBlacklist struct {
 	ID        uint       `gorm:"primarykey" json:"id"`
-	IP        string     `gorm:"uniqueIndex;size:50;not null" json:"ip"`
+	IP        string     `gorm:"index;size:50;not null" json:"ip"`
+	UserID    uint       `gorm:"index" json:"user_id"`
+	Username  string     `gorm:"size:50" json:"username"`
 	Reason    string     `gorm:"size:200" json:"reason"`
 	ExpiresAt *time.Time `json:"expires_at"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -171,12 +181,65 @@ func NewAuditLogService(db *gorm.DB) *AuditLogService {
 	return &AuditLogService{db: db}
 }
 
-func (s *AuditLogService) LogUserAction(userID uint, action, target, detail string) {
+func (s *AuditLogService) LogUserAction(userID uint, action, target, detail, ip string) {
 	var username string
 	s.db.Table("users").Where("id = ?", userID).Pluck("username", &username)
-	s.db.Create(&AuditLog{UserID: userID, Username: username, Action: action, Target: target, Detail: detail})
+	s.db.Create(&AuditLog{UserID: userID, Username: username, Action: action, Target: target, Detail: detail, IP: ip})
 }
 
 func (s *AuditLogService) LogAdminAction(userID uint, username, action, target, detail, ip string) {
 	s.db.Create(&AuditLog{UserID: userID, Username: username, Action: action, Target: target, Detail: detail, IP: ip})
+}
+
+// ParseUserAgent extracts device type, browser, and OS from user-agent string
+func ParseUserAgent(ua string) (deviceType, browser, osName string) {
+	ua = strings.ToLower(ua)
+
+	// Device type
+	switch {
+	case strings.Contains(ua, "mobile") || strings.Contains(ua, "android") && !strings.Contains(ua, "tablet"):
+		deviceType = "手机"
+	case strings.Contains(ua, "tablet") || strings.Contains(ua, "ipad"):
+		deviceType = "平板"
+	default:
+		deviceType = "电脑"
+	}
+
+	// Browser
+	switch {
+	case strings.Contains(ua, "edg/") || strings.Contains(ua, "edge/"):
+		browser = "Edge"
+	case strings.Contains(ua, "chrome") && !strings.Contains(ua, "chromium"):
+		browser = "Chrome"
+	case strings.Contains(ua, "firefox"):
+		browser = "Firefox"
+	case strings.Contains(ua, "safari") && !strings.Contains(ua, "chrome"):
+		browser = "Safari"
+	case strings.Contains(ua, "opera") || strings.Contains(ua, "opr/"):
+		browser = "Opera"
+	default:
+		if ua == "" {
+			browser = "未知"
+		} else {
+			browser = "其他"
+		}
+	}
+
+	// OS
+	switch {
+	case strings.Contains(ua, "windows"):
+		osName = "Windows"
+	case strings.Contains(ua, "mac os") || strings.Contains(ua, "macos"):
+		osName = "macOS"
+	case strings.Contains(ua, "linux") && !strings.Contains(ua, "android"):
+		osName = "Linux"
+	case strings.Contains(ua, "android"):
+		osName = "Android"
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad"):
+		osName = "iOS"
+	default:
+		osName = "未知"
+	}
+
+	return
 }

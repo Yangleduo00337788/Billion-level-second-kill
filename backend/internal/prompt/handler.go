@@ -1,4 +1,4 @@
-package prompt
+﻿package prompt
 
 import (
 	"strconv"
@@ -41,6 +41,7 @@ func (h *Handler) List(c *gin.Context) {
 	category := c.Query("category")
 	tag := c.Query("tag")
 	userIDFilter, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	keyword := c.Query("keyword")
 
 	if page < 1 {
 		page = 1
@@ -49,7 +50,7 @@ func (h *Handler) List(c *gin.Context) {
 		pageSize = 10
 	}
 
-	prompts, total, err := h.svc.List(page, pageSize, category, tag, uint(userIDFilter))
+	prompts, total, err := h.svc.List(page, pageSize, category, tag, uint(userIDFilter), keyword)
 	if err != nil {
 		response.Error(c, response.ErrInternal, err.Error())
 		return
@@ -116,6 +117,40 @@ func (h *Handler) Delete(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+func (h *Handler) Like(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, response.ErrBadRequest, "invalid prompt id")
+		return
+	}
+
+	if err := h.svc.Like(userID, uint(id)); err != nil {
+		response.Error(c, response.ErrBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+func (h *Handler) Favorite(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, response.ErrBadRequest, "invalid prompt id")
+		return
+	}
+
+	if err := h.svc.Favorite(userID, uint(id)); err != nil {
+		response.Error(c, response.ErrBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
 func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 	prompts := r.Group("/prompts")
 	{
@@ -124,5 +159,8 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 		prompts.POST("", middleware.Auth(), handler.Create)
 		prompts.PUT("/:id", middleware.Auth(), handler.Update)
 		prompts.DELETE("/:id", middleware.Auth(), handler.Delete)
+		prompts.POST("/:id/like", middleware.Auth(), handler.Like)
+		prompts.POST("/:id/favorite", middleware.Auth(), handler.Favorite)
 	}
 }
+

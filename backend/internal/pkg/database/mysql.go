@@ -61,6 +61,8 @@ func InitMySQL(cfg *config.DatabaseConfig) *gorm.DB {
 
 		// Prompt
 		&prompt.Prompt{},
+		&prompt.PromptLike{},
+		&prompt.PromptFavorite{},
 
 		// Notification
 		&notify.Notification{},

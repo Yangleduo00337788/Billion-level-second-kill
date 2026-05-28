@@ -1,11 +1,14 @@
-package article
+﻿package article
 
 import (
 	"errors"
+	"fmt"
 
 	"inference-engine/internal/admin"
 	"inference-engine/internal/ai"
 	"inference-engine/internal/notify"
+	"inference-engine/internal/pkg/points"
+	"inference-engine/internal/pkg/sensitive"
 	"inference-engine/internal/user"
 
 	"gorm.io/gorm"
@@ -17,6 +20,8 @@ type Service struct {
 	aiService   *ai.Service
 	notifySvc   *notify.Service
 	auditLogSvc *admin.AuditLogService
+	filter      *sensitive.Filter
+	pointsSvc   *points.Service
 	db          *gorm.DB
 }
 
@@ -27,6 +32,8 @@ func NewService(repo *Repository, userRepo *user.Repository, aiService *ai.Servi
 		aiService:   aiService,
 		notifySvc:   notify.NewService(db),
 		auditLogSvc: admin.NewAuditLogService(db),
+		filter:      sensitive.NewFilter(db),
+		pointsSvc:   points.NewService(db),
 		db:          db,
 	}
 }
@@ -51,7 +58,17 @@ type UpdateArticleReq struct {
 	Tags       string `json:"tags"`
 }
 
-func (s *Service) Create(userID uint, req *CreateArticleReq) (*Article, error) {
+func (s *Service) Create(userID uint, req *CreateArticleReq, ip string) (*Article, error) {
+	// Sensitive word check
+	title, forbidden, words := s.filter.CheckContent(req.Title)
+	if forbidden {
+		return nil, fmt.Errorf("标题包含违禁词: %v", words)
+	}
+	content, forbidden, words := s.filter.CheckContent(req.Content)
+	if forbidden {
+		return nil, fmt.Errorf("内容包含违禁词: %v", words)
+	}
+
 	tags := req.Tags
 	if tags == "" {
 		tags = "[]"
@@ -59,8 +76,8 @@ func (s *Service) Create(userID uint, req *CreateArticleReq) (*Article, error) {
 
 	article := &Article{
 		UserID:  userID,
-		Title:   req.Title,
-		Content: req.Content,
+		Title:   title,
+		Content: content,
 		Summary: req.Summary,
 		Cover:   req.Cover,
 		Status:  req.Status,
@@ -91,12 +108,13 @@ func (s *Service) Create(userID uint, req *CreateArticleReq) (*Article, error) {
 	s.db.Model(&user.User{}).Where("id = ?", userID).UpdateColumn("article_count", gorm.Expr("article_count + 1"))
 
 	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "创建文章", "article", article.Title)
+	go s.auditLogSvc.LogUserAction(userID, "创建文章", "article", article.Title, ip)
+	go s.pointsSvc.AwardPoints(userID, "publish_article")
 
 	return article, nil
 }
 
-func (s *Service) Update(id uint, userID uint, req *UpdateArticleReq) (*Article, error) {
+func (s *Service) Update(id uint, userID uint, req *UpdateArticleReq, ip string) (*Article, error) {
 	article, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("article not found")
@@ -107,10 +125,18 @@ func (s *Service) Update(id uint, userID uint, req *UpdateArticleReq) (*Article,
 	}
 
 	if req.Title != "" {
-		article.Title = req.Title
+		title, forbidden, words := s.filter.CheckContent(req.Title)
+		if forbidden {
+			return nil, fmt.Errorf("标题包含违禁词: %v", words)
+		}
+		article.Title = title
 	}
 	if req.Content != "" {
-		article.Content = req.Content
+		content, forbidden, words := s.filter.CheckContent(req.Content)
+		if forbidden {
+			return nil, fmt.Errorf("内容包含违禁词: %v", words)
+		}
+		article.Content = content
 	}
 	if req.Summary != "" {
 		article.Summary = req.Summary
@@ -136,7 +162,7 @@ func (s *Service) Update(id uint, userID uint, req *UpdateArticleReq) (*Article,
 	}
 
 	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "编辑文章", "article", article.Title)
+	go s.auditLogSvc.LogUserAction(userID, "编辑文章", "article", article.Title, ip)
 
 	return article, nil
 }
@@ -158,7 +184,7 @@ func (s *Service) GetByID(id uint, userID uint) (*Article, error) {
 	return article, nil
 }
 
-func (s *Service) List(page, pageSize int, status string, categoryID, userID uint) ([]Article, int64, error) {
+func (s *Service) List(page, pageSize int, status string, categoryID, userID uint, keyword string) ([]Article, int64, error) {
 	conditions := make(map[string]interface{})
 	if status != "" {
 		conditions["status"] = status
@@ -172,10 +198,10 @@ func (s *Service) List(page, pageSize int, status string, categoryID, userID uin
 		conditions["user_id"] = userID
 	}
 
-	return s.repo.List(page, pageSize, conditions)
+	return s.repo.List(page, pageSize, conditions, keyword)
 }
 
-func (s *Service) Delete(id, userID uint) error {
+func (s *Service) Delete(id, userID uint, ip string) error {
 	article, err := s.repo.FindByID(id)
 	if err != nil {
 		return errors.New("article not found")
@@ -192,12 +218,12 @@ func (s *Service) Delete(id, userID uint) error {
 	s.db.Model(&user.User{}).Where("id = ?", userID).UpdateColumn("article_count", gorm.Expr("article_count - 1"))
 
 	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "删除文章", "article", article.Title)
+	go s.auditLogSvc.LogUserAction(userID, "删除文章", "article", article.Title, ip)
 
 	return nil
 }
 
-func (s *Service) LikeArticle(userID, articleID uint) error {
+func (s *Service) LikeArticle(userID, articleID uint, ip string) error {
 	article, err := s.repo.FindByID(articleID)
 	if err != nil {
 		return errors.New("article not found")
@@ -233,12 +259,13 @@ func (s *Service) LikeArticle(userID, articleID uint) error {
 	}
 
 	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "点赞文章", "article", article.Title)
+	go s.auditLogSvc.LogUserAction(userID, "点赞文章", "article", article.Title, ip)
+	go s.pointsSvc.AwardPoints(userID, "like")
 
 	return nil
 }
 
-func (s *Service) FavoriteArticle(userID, articleID uint) error {
+func (s *Service) FavoriteArticle(userID, articleID uint, ip string) error {
 	article, err := s.repo.FindByID(articleID)
 	if err != nil {
 		return errors.New("article not found")
@@ -261,7 +288,7 @@ func (s *Service) FavoriteArticle(userID, articleID uint) error {
 	s.repo.IncrementFavoriteCount(articleID)
 
 	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "收藏文章", "article", article.Title)
+	go s.auditLogSvc.LogUserAction(userID, "收藏文章", "article", article.Title, ip)
 
 	return nil
 }
@@ -288,3 +315,4 @@ func (s *Service) SearchTitle(keyword string, page, pageSize int) ([]Article, in
 func (s *Service) ListCategories() ([]Category, error) {
 	return s.repo.ListCategories()
 }
+

@@ -1,4 +1,4 @@
-package user
+﻿package user
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 	"inference-engine/internal/admin"
 	"inference-engine/internal/notify"
 	"inference-engine/internal/pkg/jwt"
+	"inference-engine/internal/pkg/points"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -15,6 +16,7 @@ type Service struct {
 	repo        *Repository
 	notifySvc   *notify.Service
 	auditLogSvc *admin.AuditLogService
+	pointsSvc   *points.Service
 	db          *gorm.DB
 }
 
@@ -23,6 +25,7 @@ func NewService(repo *Repository, db *gorm.DB) *Service {
 		repo:        repo,
 		notifySvc:   notify.NewService(db),
 		auditLogSvc: admin.NewAuditLogService(db),
+		pointsSvc:   points.NewService(db),
 		db:          db,
 	}
 }
@@ -43,7 +46,14 @@ type LoginResp struct {
 	User  User   `json:"user"`
 }
 
-func (s *Service) Register(req *RegisterReq) (*User, error) {
+func (s *Service) Register(req *RegisterReq, ip string) (*User, error) {
+	// Check if registration is allowed
+	var allowRegister struct{ Value string }
+	s.db.Table("system_configs").Where("`key` = ?", "allow_register").Select("value").Scan(&allowRegister)
+	if allowRegister.Value == "false" {
+		return nil, errors.New("registration is currently disabled")
+	}
+
 	existing, _ := s.repo.FindByEmail(req.Email)
 	if existing != nil {
 		return nil, errors.New("email already exists")
@@ -72,23 +82,27 @@ func (s *Service) Register(req *RegisterReq) (*User, error) {
 		return nil, err
 	}
 
-	// Audit log
-	go s.auditLogSvc.LogUserAction(user.ID, "用户注册", "user", user.Username)
+	go s.auditLogSvc.LogUserAction(user.ID, "用户注册", "user", user.Username, ip)
+	go s.pointsSvc.AwardPoints(user.ID, "register")
 
 	return user, nil
 }
 
-func (s *Service) Login(req *LoginReq) (*LoginResp, error) {
+func (s *Service) Login(req *LoginReq, ip, userAgent string) (*LoginResp, error) {
 	user, err := s.repo.FindByEmail(req.Email)
 	if err != nil {
+		// Record failed login attempt
+		s.recordLoginLog(0, "", ip, userAgent, 0)
 		return nil, errors.New("invalid email or password")
 	}
 
 	if user.Status == 0 {
+		s.recordLoginLog(user.ID, user.Username, ip, userAgent, 0)
 		return nil, errors.New("account has been banned")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		s.recordLoginLog(user.ID, user.Username, ip, userAgent, 0)
 		return nil, errors.New("invalid email or password")
 	}
 
@@ -97,13 +111,44 @@ func (s *Service) Login(req *LoginReq) (*LoginResp, error) {
 		return nil, err
 	}
 
-	// Audit log
-	go s.auditLogSvc.LogUserAction(user.ID, "用户登录", "user", user.Username)
+	// Record successful login
+	s.recordLoginLog(user.ID, user.Username, ip, userAgent, 1)
+
+	go s.auditLogSvc.LogUserAction(user.ID, "用户登录", "user", user.Username, ip)
+	go s.pointsSvc.AwardPoints(user.ID, "daily_login")
 
 	return &LoginResp{
 		Token: token,
 		User:  *user,
 	}, nil
+}
+
+func (s *Service) recordLoginLog(userID uint, username, ip, userAgent string, status int) {
+	deviceType, browser, osName := admin.ParseUserAgent(userAgent)
+	go func() {
+		s.db.Create(&admin.LoginLog{
+			UserID:     userID,
+			Username:   username,
+			IP:         ip,
+			UserAgent:  userAgent,
+			DeviceType: deviceType,
+			Browser:    browser,
+			OS:         osName,
+			Status:     status,
+		})
+	}()
+}
+
+// RecordLogout updates the latest login log with logout time
+func (s *Service) RecordLogout(userID uint) {
+	now := s.db.NowFunc()
+	go func() {
+		s.db.Model(&admin.LoginLog{}).
+			Where("user_id = ? AND logout_at IS NULL", userID).
+			Order("created_at DESC").
+			Limit(1).
+			Update("logout_at", now)
+	}()
 }
 
 func (s *Service) GetProfile(userID uint) (*User, error) {
@@ -124,7 +169,7 @@ type UpdateProfileReq struct {
 	Bio      string `json:"bio"`
 }
 
-func (s *Service) UpdateProfile(userID uint, req *UpdateProfileReq) (*User, error) {
+func (s *Service) UpdateProfile(userID uint, req *UpdateProfileReq, ip string) (*User, error) {
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		return nil, errors.New("user not found")
@@ -148,13 +193,12 @@ func (s *Service) UpdateProfile(userID uint, req *UpdateProfileReq) (*User, erro
 		return nil, err
 	}
 
-	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "更新资料", "user", user.Username)
+	go s.auditLogSvc.LogUserAction(userID, "更新资料", "user", user.Username, ip)
 
 	return user, nil
 }
 
-func (s *Service) Follow(followerID, followedID uint) error {
+func (s *Service) Follow(followerID, followedID uint, ip string) error {
 	if followerID == followedID {
 		return errors.New("cannot follow yourself")
 	}
@@ -185,7 +229,6 @@ func (s *Service) Follow(followerID, followedID uint) error {
 
 	tx.Commit()
 
-	// Trigger notification to followed user
 	go s.notifySvc.Create(&notify.CreateNotifyReq{
 		UserID:   followedID,
 		ActorID:  followerID,
@@ -194,13 +237,13 @@ func (s *Service) Follow(followerID, followedID uint) error {
 		TargetID: followerID,
 	})
 
-	// Audit log
-	go s.auditLogSvc.LogUserAction(followerID, "关注用户", "user", followedUser.Username)
+	go s.auditLogSvc.LogUserAction(followerID, "关注用户", "user", followedUser.Username, ip)
+	go s.pointsSvc.AwardPoints(followerID, "follow")
 
 	return nil
 }
 
-func (s *Service) Unfollow(followerID, followedID uint) error {
+func (s *Service) Unfollow(followerID, followedID uint, ip string) error {
 	following, _ := s.repo.IsFollowing(followerID, followedID)
 	if !following {
 		return errors.New("not following")
@@ -220,9 +263,8 @@ func (s *Service) Unfollow(followerID, followedID uint) error {
 
 	tx.Commit()
 
-	// Audit log
 	if followedUser != nil {
-		go s.auditLogSvc.LogUserAction(followerID, "取消关注", "user", followedUser.Username)
+		go s.auditLogSvc.LogUserAction(followerID, "取消关注", "user", followedUser.Username, ip)
 	}
 
 	return nil

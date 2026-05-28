@@ -36,6 +36,39 @@
 
       <!-- Main Content -->
       <div class="flex-1 min-w-0">
+        <!-- Featured Recommendations -->
+        <div v-if="featuredArticles.length > 0" class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-dark">精选推荐</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              v-for="item in featuredArticles"
+              :key="item.recommend_id"
+              class="bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+              @click="item.type === 'article' ? goToArticle(item.id) : goToPrompt(item.id)"
+            >
+              <div v-if="item.cover" class="aspect-[16/9] overflow-hidden">
+                <img :src="item.cover" :alt="item.title" class="w-full h-full object-cover" />
+              </div>
+              <div class="p-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-0.5 text-xs font-medium rounded-full" :class="item.type === 'article' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'">
+                    {{ item.type === 'article' ? '文章' : 'Prompt' }}
+                  </span>
+                  <span class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-600 rounded-full">推荐</span>
+                </div>
+                <h3 class="font-semibold text-dark text-base mb-2 line-clamp-2">{{ item.title }}</h3>
+                <p v-if="item.summary" class="text-sm text-gray-500 mb-3 line-clamp-2">{{ item.summary }}</p>
+                <div v-if="item.author" class="flex items-center gap-2">
+                  <n-avatar :src="item.avatar" round size="tiny" />
+                  <span class="text-xs text-gray-500">{{ item.author }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Mobile: horizontal tag scroll -->
         <div class="flex gap-3 mb-6 overflow-x-auto pb-2 scrollbar-none md:hidden">
           <button
@@ -121,6 +154,27 @@
             </div>
           </div>
 
+          <!-- Sidebar Recommendations -->
+          <div v-if="sidebarRecommendations.length > 0" class="bg-white rounded-2xl border border-gray-100 p-5">
+            <h3 class="text-sm font-semibold text-dark mb-4">推荐阅读</h3>
+            <div>
+              <div v-for="item in sidebarRecommendations" :key="item.recommend_id" class="mb-4 last:mb-0 cursor-pointer group" @click="item.type === 'article' ? goToArticle(item.id) : goToPrompt(item.id)">
+                <div class="flex items-start gap-3">
+                  <div v-if="item.cover" class="w-16 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                    <img :src="item.cover" :alt="item.title" class="w-full h-full object-cover" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-700 line-clamp-2 group-hover:text-primary transition-colors">{{ item.title }}</p>
+                    <div class="flex items-center gap-1 mt-1">
+                      <span class="text-xs px-1.5 py-0.5 rounded" :class="item.type === 'article' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'">{{ item.type === 'article' ? '文章' : 'Prompt' }}</span>
+                      <span v-if="item.author" class="text-xs text-gray-400">{{ item.author }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="bg-white rounded-2xl border border-gray-100 p-5">
             <h3 class="text-sm font-semibold text-dark mb-4">推荐作者</h3>
             <div>
@@ -174,9 +228,26 @@ const hotArticles = computed(() => articleStore.hot)
 const hasMore = computed(() => articles.value.length < articleStore.total)
 
 const recommendedCreators = ref<Array<{ id: number; username: string; avatar: string; bio: string }>>([])
+const featuredArticles = ref<Array<any>>([])
+const sidebarRecommendations = ref<Array<any>>([])
 
 function goToUser(id: number) { router.push('/user/' + id) }
 function goToArticle(id: number) { router.push('/article/' + id) }
+function goToPrompt(id: number) { router.push('/prompt/' + id) }
+
+async function fetchFeatured() {
+  try {
+    const res = await get<any>('/recommendations?position=homepage_top')
+    featuredArticles.value = Array.isArray(res.data) ? res.data : []
+  } catch {}
+}
+
+async function fetchSidebarRecommendations() {
+  try {
+    const res = await get<any>('/recommendations?position=homepage_sidebar')
+    sidebarRecommendations.value = Array.isArray(res.data) ? res.data : []
+  } catch {}
+}
 
 async function loadMore() {
   if (articleStore.loading) return
@@ -201,6 +272,8 @@ watch(selectedTag, () => {
 
 onMounted(async () => {
   fetchCategories()
+  fetchFeatured()
+  fetchSidebarRecommendations()
   await articleStore.fetchList({ page: 1, page_size: 10 })
   articleStore.fetchHot()
   fetchRecommendedCreators()

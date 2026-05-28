@@ -46,8 +46,7 @@ const columns = [
   { title: '日期', key: 'date', width: 120 },
   { title: '请求数', key: 'total_requests', width: 100 },
   { title: 'Token 数', key: 'total_tokens', width: 120 },
-  { title: '错误数', key: 'error_count', width: 100 },
-  { title: '模型', key: 'model', width: 150, ellipsis: { tooltip: true } }
+  { title: '错误数', key: 'error_count', width: 100 }
 ]
 
 async function fetchStats() {

@@ -44,6 +44,15 @@ func (h *Handler) StreamChat(c *gin.Context) {
 		return
 	}
 
+	// Check API key before setting SSE headers
+	if !h.svc.HasAPIKey() {
+		c.JSON(200, gin.H{
+			"code":    500,
+			"message": "AI API key not configured. Please set ai_api_key in admin panel.",
+		})
+		return
+	}
+
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
@@ -51,7 +60,8 @@ func (h *Handler) StreamChat(c *gin.Context) {
 
 	ch, err := h.svc.StreamChat(req.Messages)
 	if err != nil {
-		response.Error(c, response.ErrInternal, err.Error())
+		// Send error as SSE event
+		c.SSEvent("error", gin.H{"message": err.Error()})
 		return
 	}
 

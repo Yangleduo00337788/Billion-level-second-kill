@@ -1,7 +1,8 @@
-package router
+﻿package router
 
 import (
 	"strconv"
+	"strings"
 
 	"inference-engine/internal/admin"
 	"inference-engine/internal/ai"
@@ -25,8 +26,12 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	cfg := config.Get()
 	r := gin.Default()
 
+	middleware.SetGlobalDB(db)
 	r.Use(middleware.CORS())
 	r.Use(middleware.Logger())
+
+	// Page view recording middleware (for frontend pages)
+	r.Use(middleware.PageViewRecorder(db))
 
 	if rdb != nil {
 		rateLimitCfg := middleware.NewRateLimitConfig(rdb)
@@ -41,6 +46,14 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	userSvc := user.NewService(userRepo, db)
 	userHandler := user.NewHandler(userSvc)
 	oauthHandler := user.NewOAuthHandler(db, &cfg.OAuth, "")
+	r.GET("/api/v1/user/:id/tags", func(c *gin.Context) {
+		idStr := c.Param("id")
+		id, err := strconv.ParseUint(idStr, 10, 64)
+		if err != nil { response.Error(c, response.ErrBadRequest, "invalid id"); return }
+		var tags []admin.UserTag
+		db.Where("user_id = ?", id).Find(&tags)
+		response.Success(c, tags)
+	})
 	r.GET("/api/v1/user/list", func(c *gin.Context) {
 		var users []user.User
 		db.Where("status = 1").Order("article_count DESC").Limit(5).Find(&users)
@@ -57,7 +70,7 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 		id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-		articles, total, _ := articleSvc.List(page, pageSize, "", 0, uint(id))
+		articles, total, _ := articleSvc.List(page, pageSize, "", 0, uint(id), "")
 		response.Page(c, articles, total, page, pageSize)
 	})
 
@@ -86,6 +99,167 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	go chatHub.Run()
 	chatHandler := chat.NewHandler(chatHub)
 	chat.RegisterRoutes(r.Group("/api/v1"), chatHandler)
+
+	// Public announcements endpoint (no admin required)
+	r.GET("/api/v1/announcements", func(c *gin.Context) {
+		var items []admin.Announcement
+		db.Where("status = ?", 1).Order("priority DESC, created_at DESC").Limit(20).Find(&items)
+		response.Success(c, items)
+	})
+
+	// Page view recording endpoint (for SPA)
+	r.POST("/api/v1/page-view", func(c *gin.Context) {
+		var req struct {
+			Path string `json:"path" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, response.ErrBadRequest, err.Error())
+			return
+		}
+
+		// Skip API paths
+		if strings.HasPrefix(req.Path, "/api/") || strings.HasPrefix(req.Path, "/admin") {
+			response.Success(c, nil)
+			return
+		}
+
+		var userID uint
+		if uid, exists := c.Get("userID"); exists {
+			if id, ok := uid.(uint); ok {
+				userID = id
+			}
+		}
+
+		go func() {
+			db.Create(&admin.PageView{
+				Path:      req.Path,
+				UserID:    userID,
+				IP:        normalizeIP(c.ClientIP()),
+				UserAgent: c.GetHeader("User-Agent"),
+			})
+		}()
+
+		response.Success(c, nil)
+	})
+
+	// Public site config endpoint
+	r.GET("/api/v1/site-config", func(c *gin.Context) {
+		var configs []admin.SystemConfig
+		db.Where("`key` IN ?", []string{"site_name", "site_description", "allow_register"}).Find(&configs)
+		result := make(map[string]string)
+		for _, cfg := range configs {
+			result[cfg.Key] = cfg.Value
+		}
+		response.Success(c, result)
+	})
+
+	// User points endpoint
+	r.GET("/api/v1/user/:id/points", func(c *gin.Context) {
+		idStr := c.Param("id")
+		id, err := strconv.ParseUint(idStr, 10, 64)
+		if err != nil {
+			response.Error(c, response.ErrBadRequest, "invalid user id")
+			return
+		}
+		var user struct {
+			Points int `json:"points"`
+		}
+		db.Table("users").Select("points").Where("id = ?", id).Scan(&user)
+		response.Success(c, gin.H{"points": user.Points})
+	})
+
+	// Public recommendations endpoint
+	r.GET("/api/v1/recommendations", func(c *gin.Context) {
+		position := c.Query("position")
+		if position == "" {
+			position = "homepage_top"
+		}
+
+		type RecommendResult struct {
+			ID         uint   `json:"id"`
+			TargetType string `json:"target_type"`
+			TargetID   uint   `json:"target_id"`
+			Position   string `json:"position"`
+			SortOrder  int    `json:"sort_order"`
+		}
+
+		var items []RecommendResult
+		db.Table("recommend_items").
+			Select("id, target_type, target_id, position, sort_order").
+			Where("position = ? AND status = 1", position).
+			Order("sort_order ASC").
+			Limit(10).
+			Find(&items)
+
+		// Fetch actual content for each recommendation
+		type ContentItem struct {
+			RecommendID uint   `json:"recommend_id"`
+			Type        string `json:"type"`
+			ID          uint   `json:"id"`
+			Title       string `json:"title"`
+			Summary     string `json:"summary"`
+			Cover       string `json:"cover"`
+			Author      string `json:"author"`
+			Avatar      string `json:"avatar"`
+		}
+
+		var results []ContentItem
+		for _, item := range items {
+			if item.TargetType == "article" {
+				var article struct {
+					ID       uint   `json:"id"`
+					Title    string `json:"title"`
+					Summary  string `json:"summary"`
+					Cover    string `json:"cover"`
+					Username string `json:"username"`
+					Avatar   string `json:"avatar"`
+				}
+				db.Table("articles").
+					Select("articles.id, articles.title, articles.summary, articles.cover, users.username, users.avatar").
+					Joins("LEFT JOIN users ON users.id = articles.user_id").
+					Where("articles.id = ? AND articles.deleted_at IS NULL", item.TargetID).
+					Scan(&article)
+				if article.ID > 0 {
+					results = append(results, ContentItem{
+						RecommendID: item.ID,
+						Type:        "article",
+						ID:          article.ID,
+						Title:       article.Title,
+						Summary:     article.Summary,
+						Cover:       article.Cover,
+						Author:      article.Username,
+						Avatar:      article.Avatar,
+					})
+				}
+			} else if item.TargetType == "prompt" {
+				var prompt struct {
+					ID          uint   `json:"id"`
+					Title       string `json:"title"`
+					Description string `json:"description"`
+					Username    string `json:"username"`
+					Avatar      string `json:"avatar"`
+				}
+				db.Table("prompts").
+					Select("prompts.id, prompts.title, prompts.description, users.username, users.avatar").
+					Joins("LEFT JOIN users ON users.id = prompts.user_id").
+					Where("prompts.id = ? AND prompts.deleted_at IS NULL", item.TargetID).
+					Scan(&prompt)
+				if prompt.ID > 0 {
+					results = append(results, ContentItem{
+						RecommendID: item.ID,
+						Type:        "prompt",
+						ID:          prompt.ID,
+						Title:       prompt.Title,
+						Summary:     prompt.Description,
+						Author:      prompt.Username,
+						Avatar:      prompt.Avatar,
+					})
+				}
+			}
+		}
+
+		response.Success(c, results)
+	})
 
 	searchSvc := search.NewServiceWithDB(&cfg.ES, db)
 	r.GET("/api/v1/search", func(c *gin.Context) {
@@ -143,9 +317,11 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 
 		// User Management
 		adminGroup.GET("/users", adminHandler.ListUsers)
+		adminGroup.GET("/users/search", adminHandler.SearchUsers)
 		adminGroup.PUT("/users/:id", adminHandler.UpdateUser)
 		adminGroup.POST("/users/:id/ban", adminHandler.BanUser)
 		adminGroup.POST("/users/:id/unban", adminHandler.UnbanUser)
+		adminGroup.GET("/user-tags", adminHandler.ListAllUserTags)
 		adminGroup.GET("/users/:id/tags", adminHandler.ListUserTags)
 		adminGroup.POST("/users/:id/tags", adminHandler.AddUserTag)
 		adminGroup.DELETE("/users/:id/tags/:tagId", adminHandler.DeleteUserTag)
@@ -188,11 +364,15 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 		adminGroup.POST("/sensitive-words", adminHandler.AddSensitiveWord)
 		adminGroup.DELETE("/sensitive-words/:id", adminHandler.DeleteSensitiveWord)
 
+		// Notifications (admin view all)
+		adminGroup.GET("/notifications", adminHandler.ListAllNotifications)
+
 		// Operations
 		adminGroup.GET("/recommend-items", adminHandler.ListRecommendItems)
 		adminGroup.POST("/recommend-items", adminHandler.AddRecommendItem)
 		adminGroup.DELETE("/recommend-items/:id", adminHandler.DeleteRecommendItem)
 		adminGroup.GET("/points-rules", adminHandler.ListPointsRules)
+		adminGroup.POST("/points-rules", adminHandler.CreatePointsRule)
 		adminGroup.PUT("/points-rules/:id", adminHandler.UpdatePointsRule)
 		adminGroup.GET("/invite-codes", adminHandler.ListInviteCodes)
 		adminGroup.POST("/invite-codes", adminHandler.CreateInviteCode)
@@ -217,3 +397,5 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 
 	return r
 }
+
+

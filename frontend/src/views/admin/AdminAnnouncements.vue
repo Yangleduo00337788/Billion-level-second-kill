@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-dark">公告管理</h1>
@@ -48,13 +48,21 @@ const priorityOptions = [
   { label: '紧急', value: 2 }
 ]
 
+function getPriorityType(p: number): string {
+  return (['default', 'warning', 'error'][p] || 'default') as string
+}
+
+function getPriorityLabel(p: number): string {
+  return ['普通', '重要', '紧急'][p] || '普通'
+}
+
 const columns = [
   { title: 'ID', key: 'id', width: 60 },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { title: '内容', key: 'content', ellipsis: { tooltip: true } },
   {
     title: '优先级', key: 'priority', width: 100,
-    render: (row: any) => h(NTag, { type: ['', 'warning', 'error'][row.priority] || 'default', size: 'small' }, { default: () => ['普通', '重要', '紧急'][row.priority] || '普通' })
+    render: (row: any) => h(NTag, { type: getPriorityType(row.priority) as any, size: 'small' }, { default: () => getPriorityLabel(row.priority) })
   },
   {
     title: '状态', key: 'status', width: 80,
@@ -88,7 +96,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     await post('/admin/announcements', form.value)
-    message.success('发布成功')
+    message.success('发布公告成功')
     showModal.value = false
     form.value = { title: '', content: '', priority: 0 }
     fetchItems()

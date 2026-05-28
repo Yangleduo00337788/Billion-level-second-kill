@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { post } from '@/api/request'
 import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
@@ -95,6 +96,14 @@ const router = createRouter({
       ]
     }
   ]
+})
+
+// Record page view on route change
+router.afterEach((to) => {
+  // Skip admin pages and API calls
+  if (!to.path.startsWith('/admin') && !to.path.startsWith('/api/')) {
+    post('/page-view', { path: to.fullPath }).catch(() => {})
+  }
 })
 
 router.beforeEach((to, _from) => {

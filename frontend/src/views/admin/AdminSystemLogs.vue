@@ -1,30 +1,58 @@
-<template>
+﻿<template>
   <div class="p-6">
     <h1 class="text-2xl font-bold text-dark mb-6">系统日志</h1>
     <div class="bg-white rounded-xl border border-gray-100 p-4 mb-4">
-      <n-select v-model:value="levelFilter" :options="[{label:'全部',value:''},{label:'ERROR',value:'error'},{label:'WARN',value:'warn'},{label:'INFO',value:'info'}]" clearable style="width: 150px" @update:value="fetchItems" />
+      <n-select v-model:value="levelFilter" :options="[
+        {label:'全部', value:''},
+        {label:'ERROR', value:'error'},
+        {label:'WARN', value:'warn'},
+        {label:'INFO', value:'info'}
+      ]" clearable style="width: 150px" @update:value="fetchItems" />
     </div>
     <n-data-table :columns="columns" :data="items" :loading="loading" :bordered="false" :single-line="false" :pagination="pagination" remote />
   </div>
 </template>
+
 <script setup lang="ts">
 import { ref, onMounted, reactive, h } from 'vue'
 import { NTag } from 'naive-ui'
 import { get } from '@/api/request'
+
 const loading = ref(false)
 const items = ref<any[]>([])
 const levelFilter = ref('')
 const pagination = reactive({
   page: 1, pageSize: 20, pageCount: 1,
-  onChange: (p: number) => { pagination.page = p; fetchItems() }
+  showSizePicker: true, pageSizes: [20, 50, 100],
+  onChange: (p: number) => { pagination.page = p; fetchItems() },
+  onUpdatePageSize: (size: number) => { pagination.pageSize = size; pagination.page = 1; fetchItems() }
 })
+
+function getLevelType(level: string) {
+  const map: Record<string, string> = { error: 'error', warn: 'warning', info: 'info' }
+  return (map[level] || 'default') as any
+}
+
 const columns = [
   { title: 'ID', key: 'id', width: 60 },
-  { title: '级别', key: 'level', width: 80, render: (row: any) => h(NTag, { type: {error:'error',warn:'warning',info:'info'}[row.level] || 'default', size: 'small' }, { default: () => row.level }) },
-  { title: '消息', key: 'message', ellipsis: { tooltip: true } },
-  { title: '来源', key: 'source', width: 150 },
-  { title: '时间', key: 'created_at', width: 170 }
+  {
+    title: '级别', key: 'level', width: 80,
+    render: (row: any) => h(NTag, { type: getLevelType(row.level), size: 'small', round: true }, { default: () => (row.level || '').toUpperCase() })
+  },
+  {
+    title: '消息', key: 'message', minWidth: 300, ellipsis: { tooltip: true },
+    render: (row: any) => h('span', { class: 'text-sm' }, row.message || '-')
+  },
+  {
+    title: '来源', key: 'source', width: 200,
+    render: (row: any) => h('span', { class: 'text-xs font-mono text-gray-500' }, row.source || '-')
+  },
+  {
+    title: '时间', key: 'created_at', width: 170,
+    render: (row: any) => h('span', { class: 'text-xs text-gray-400' }, row.created_at ? new Date(row.created_at).toLocaleString('zh-CN') : '-')
+  }
 ]
+
 async function fetchItems() {
   loading.value = true
   try {
@@ -36,5 +64,7 @@ async function fetchItems() {
     pagination.pageCount = Math.ceil((data?.total || 0) / pagination.pageSize)
   } catch { items.value = [] } finally { loading.value = false }
 }
+
 onMounted(fetchItems)
 </script>
+

@@ -39,6 +39,26 @@
       </n-input>
     </div>
 
+    <!-- Recommended Prompts -->
+    <div v-if="recommendedPrompts.length > 0" class="mb-8">
+      <h2 class="text-lg font-bold text-dark mb-4">精选推荐</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          v-for="item in recommendedPrompts"
+          :key="item.recommend_id"
+          class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-5 border border-purple-100 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+          @click="router.push(`/prompt/${item.id}`)"
+        >
+          <div class="flex items-center gap-2 mb-3">
+            <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-600 rounded-full">推荐</span>
+            <span v-if="item.author" class="text-xs text-gray-400">{{ item.author }}</span>
+          </div>
+          <h3 class="font-semibold text-dark mb-2 line-clamp-2">{{ item.title }}</h3>
+          <p v-if="item.summary" class="text-sm text-gray-500 line-clamp-2">{{ item.summary }}</p>
+        </div>
+      </div>
+    </div>
+
     <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div v-for="i in 6" :key="i" class="bg-white rounded-xl p-5 animate-pulse border border-gray-100">
         <div class="bg-gray-100 h-4 rounded w-2/3 mb-3"></div>
@@ -93,6 +113,7 @@ const selectedCategory = ref('全部')
 const searchQuery = ref('')
 const prompts = ref<any[]>([])
 const loading = ref(false)
+const recommendedPrompts = ref<Array<any>>([])
 
 const categories = ref<string[]>(['全部'])
 
@@ -129,7 +150,15 @@ watch(selectedCategory, () => {
   fetchPrompts()
 })
 
+async function fetchRecommendedPrompts() {
+  try {
+    const res = await get<any>('/recommendations?position=prompt_recommend')
+    recommendedPrompts.value = Array.isArray(res.data) ? res.data : []
+  } catch {}
+}
+
 onMounted(() => {
   fetchPrompts()
+  fetchRecommendedPrompts()
 })
 </script>

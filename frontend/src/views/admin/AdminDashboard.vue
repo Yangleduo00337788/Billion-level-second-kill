@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="p-6">
     <h1 class="text-2xl font-bold text-dark mb-6">仪表盘</h1>
 
@@ -56,10 +56,10 @@
             </span>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-dark truncate">{{ item.title }}</p>
-              <p class="text-xs text-gray-400">{{ item.created_at }}</p>
+              <p class="text-xs text-gray-400">{{ formatDate(item.created_at) }}</p>
             </div>
           </div>
-          <p v-if="!announcements.length" class="text-sm text-gray-400">暂无公告</p>
+          <p v-if="!announcements.length" class="text-sm text-gray-400 text-center py-4">暂无公告</p>
         </div>
       </div>
     </div>
@@ -84,6 +84,11 @@ const stats = ref<any>({
 const announcements = ref<any[]>([])
 const statCards = ref<any[]>([])
 
+function formatDate(date: string) {
+  if (!date) return ''
+  return new Date(date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
 async function fetchStats() {
   try {
     const res = await get<any>('/admin/dashboard')
@@ -102,34 +107,43 @@ async function fetchChartData() {
     const res = await get<any>('/admin/chart-data')
     const data = res.data || []
     await nextTick()
+
     if (trendChartRef.value) {
       trendChart = echarts.init(trendChartRef.value)
       trendChart.setOption({
         tooltip: { trigger: 'axis' },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: { type: 'category', data: data.map((d: any) => d.date) },
+        legend: { data: ['用户', '文章', '评论'], bottom: 0 },
+        grid: { left: '3%', right: '4%', bottom: '12%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: data.map((d: any) => d.date),
+          axisLabel: { formatter: (v: string) => v.slice(5) }
+        },
         yAxis: { type: 'value' },
         series: [
-          { name: '用户', type: 'line', data: data.map((d: any) => d.users), smooth: true, lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' } },
-          { name: '文章', type: 'line', data: data.map((d: any) => d.articles), smooth: true, lineStyle: { color: '#22c55e' }, itemStyle: { color: '#22c55e' } },
-          { name: '评论', type: 'line', data: data.map((d: any) => d.comments), smooth: true, lineStyle: { color: '#a855f7' }, itemStyle: { color: '#a855f7' } }
+          { name: '用户', type: 'line', data: data.map((d: any) => d.users), smooth: true, lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, areaStyle: { color: 'rgba(59,130,246,0.08)' } },
+          { name: '文章', type: 'line', data: data.map((d: any) => d.articles), smooth: true, lineStyle: { color: '#22c55e' }, itemStyle: { color: '#22c55e' }, areaStyle: { color: 'rgba(34,197,94,0.08)' } },
+          { name: '评论', type: 'line', data: data.map((d: any) => d.comments), smooth: true, lineStyle: { color: '#a855f7' }, itemStyle: { color: '#a855f7' }, areaStyle: { color: 'rgba(168,85,247,0.08)' } }
         ]
       })
     }
 
     if (pieChartRef.value) {
       pieChart = echarts.init(pieChartRef.value)
+      const pieData = [
+        { value: stats.value.total_articles, name: '文章' },
+        { value: stats.value.total_prompts, name: 'Prompt' },
+        { value: stats.value.total_comments, name: '评论' }
+      ]
+      const hasData = pieData.some(d => d.value > 0)
       pieChart.setOption({
-        tooltip: { trigger: 'item' },
+        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
         legend: { bottom: '0' },
         series: [{
           type: 'pie', radius: ['40%', '70%'],
-          data: [
-            { value: stats.value.total_articles, name: '文章', itemStyle: { color: '#22c55e' } },
-            { value: stats.value.total_prompts, name: 'Prompt', itemStyle: { color: '#EB9463' } },
-            { value: stats.value.total_comments, name: '评论', itemStyle: { color: '#a855f7' } }
-          ],
-          label: { show: false }
+          data: hasData ? pieData : [{ value: 1, name: '暂无数据', itemStyle: { color: '#e5e7eb' } }],
+          label: { show: true, formatter: '{b}: {c}' },
+          emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)' } }
         }]
       })
     }
@@ -139,7 +153,7 @@ async function fetchChartData() {
 async function fetchAnnouncements() {
   try {
     const res = await get<any>('/admin/announcements')
-    announcements.value = res.data?.items || []
+    announcements.value = res.data?.items || res.data || []
   } catch {}
 }
 
@@ -149,8 +163,9 @@ function handleResize() {
 }
 
 onMounted(() => {
-  fetchStats()
-  fetchChartData()
+  fetchStats().then(() => {
+    fetchChartData()
+  })
   fetchAnnouncements()
   window.addEventListener('resize', handleResize)
 })

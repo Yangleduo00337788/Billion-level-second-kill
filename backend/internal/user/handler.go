@@ -1,6 +1,7 @@
-package user
+﻿package user
 
 import (
+	"net"
 	"strconv"
 
 	"inference-engine/internal/middleware"
@@ -8,6 +9,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func normalizeIP(ip string) string {
+	if ip == "::1" {
+		return "127.0.0.1"
+	}
+	parsed := net.ParseIP(ip)
+	if parsed != nil {
+		if v4 := parsed.To4(); v4 != nil {
+			return v4.String()
+		}
+	}
+	return ip
+}
 
 type Handler struct {
 	svc *Service
@@ -24,7 +38,8 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.svc.Register(&req)
+	ip := c.ClientIP()
+	user, err := h.svc.Register(&req, ip)
 	if err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
@@ -40,13 +55,24 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.svc.Login(&req)
+	ip := normalizeIP(c.ClientIP())
+	ua := c.GetHeader("User-Agent")
+
+	resp, err := h.svc.Login(&req, ip, ua)
 	if err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}
 
 	response.Success(c, resp)
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	if userID > 0 {
+		h.svc.RecordLogout(userID)
+	}
+	response.Success(c, nil)
 }
 
 func (h *Handler) GetProfile(c *gin.Context) {
@@ -69,7 +95,8 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.svc.UpdateProfile(userID, &req)
+	ip := c.ClientIP()
+	user, err := h.svc.UpdateProfile(userID, &req, ip)
 	if err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
@@ -104,7 +131,8 @@ func (h *Handler) Follow(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Follow(userID, uint(followedID)); err != nil {
+	ip := c.ClientIP()
+	if err := h.svc.Follow(userID, uint(followedID), ip); err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}
@@ -121,7 +149,8 @@ func (h *Handler) Unfollow(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Unfollow(userID, uint(followedID)); err != nil {
+	ip := c.ClientIP()
+	if err := h.svc.Unfollow(userID, uint(followedID), ip); err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}
@@ -188,6 +217,7 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler, oauthHandler *OAuthHan
 	{
 		auth.POST("/register", handler.Register)
 		auth.POST("/login", handler.Login)
+		auth.POST("/logout", handler.Logout)
 		auth.GET("/google", oauthHandler.GoogleLogin)
 		auth.GET("/google/callback", oauthHandler.GoogleCallback)
 		auth.GET("/github", oauthHandler.GitHubLogin)

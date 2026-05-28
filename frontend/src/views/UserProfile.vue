@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page-wrapper">
     <div class="max-w-[1100px] mx-auto px-6 lg:px-10 py-8">
     <div v-if="loading" class="text-center py-20"><n-spin size="large" /></div>
@@ -9,10 +9,16 @@
           <div class="flex-1 min-w-0">
             <h1 class="text-xl lg:text-2xl font-bold text-dark mb-1">{{ profile.username }}</h1>
             <p class="text-sm text-gray-500 mb-3">{{ profile.bio || '这个人很懒，什么都没写' }}</p>
+            <div class="flex items-center flex-wrap gap-2 mb-3">
+              <n-tag v-if="profile.role === 'admin'" type="error" size="small" round>管理员</n-tag>
+              <n-tag v-else-if="profile.role === 'creator'" type="info" size="small" round>创作者</n-tag>
+              <n-tag v-for="tag in userTags" :key="tag" type="warning" size="small" round>{{ tag }}</n-tag>
+            </div>
             <div class="flex items-center gap-4 lg:gap-6 text-sm">
               <span class="text-gray-500"><strong class="text-dark">{{ formatCount(profile.article_count) }}</strong> 文章</span>
               <span class="text-gray-500"><strong class="text-dark">{{ formatCount(profile.follow_count) }}</strong> 关注</span>
               <span class="text-gray-500"><strong class="text-dark">{{ formatCount(profile.fans_count) }}</strong> 粉丝</span>
+              <span class="text-gray-500"><strong class="text-yellow-600">{{ formatCount(profile.points || 0) }}</strong> 积分</span>
             </div>
           </div>
           <div v-if="isOwner" class="flex-shrink-0">
@@ -67,15 +73,9 @@
 
     <n-modal v-model:show="showEditModal" title="编辑资料" preset="card" style="width: 420px;" closable>
     <n-form>
-      <n-form-item label="用户名" required>
-        <n-input v-model:value="editForm.username" />
-      </n-form-item>
-      <n-form-item label="简介">
-        <n-input v-model:value="editForm.bio" type="textarea" :rows="3" />
-      </n-form-item>
-      <n-form-item label="头像链接">
-        <n-input v-model:value="editForm.avatar" placeholder="输入头像 URL" />
-      </n-form-item>
+      <n-form-item label="用户名" required><n-input v-model:value="editForm.username" /></n-form-item>
+      <n-form-item label="简介"><n-input v-model:value="editForm.bio" type="textarea" :rows="3" /></n-form-item>
+      <n-form-item label="头像链接"><n-input v-model:value="editForm.avatar" placeholder="输入头像 URL" /></n-form-item>
     </n-form>
     <template #footer>
       <div class="flex justify-end gap-2">
@@ -109,6 +109,7 @@ const activeTab = ref('articles')
 const userArticles = ref<Article[]>([])
 const userPrompts = ref<Prompt[]>([])
 const userFavorites = ref<Article[]>([])
+const userTags = ref<string[]>([])
 const showEditModal = ref(false)
 const saving = ref(false)
 
@@ -132,36 +133,33 @@ async function fetchProfile() {
     editForm.value = { username: res.data.username, bio: res.data.bio || '', avatar: res.data.avatar || '' }
     if (userStore.isAuthenticated) {
       try {
-        const followRes = await get(`/user/${id}/followers`, { page: 1, size: 1 })
+        const followRes = await get(`/user/${id}/followers`, { page: 1, page_size: 1 })
         isFollowing.value = followRes.data.items?.some((f: any) => f.id === userStore.user?.id) || false
       } catch {}
     }
+    // Fetch user tags
+    try {
+      const tagRes = await get<any>(`/user/${id}/tags`)
+      const tags = Array.isArray(tagRes.data) ? tagRes.data : []
+      userTags.value = tags.map((t: any) => t.tag || t)
+    } catch {}
   } catch { message.error('用户不存在'); router.push('/') }
   finally { loading.value = false }
 }
 
 async function fetchArticles() {
   const id = Number(route.params.id)
-  try {
-    const res = await get(`/articles`, { user_id: id, page: 1, size: 20 })
-    userArticles.value = res.data.items || []
-  } catch { userArticles.value = [] }
+  try { const res = await get(`/articles`, { user_id: id, page: 1, page_size: 20 }); userArticles.value = res.data.items || [] } catch { userArticles.value = [] }
 }
 
 async function fetchPrompts() {
   const id = Number(route.params.id)
-  try {
-    const res = await get(`/prompts`, { user_id: id, page: 1, size: 20 })
-    userPrompts.value = res.data.items || []
-  } catch { userPrompts.value = [] }
+  try { const res = await get(`/prompts`, { user_id: id, page: 1, page_size: 20 }); userPrompts.value = res.data.items || [] } catch { userPrompts.value = [] }
 }
 
 async function fetchFavorites() {
   const id = Number(route.params.id)
-  try {
-    const res = await get(`/user/${id}/favorites`, { page: 1, size: 20 })
-    userFavorites.value = res.data?.items || res.data || []
-  } catch { userFavorites.value = [] }
+  try { const res = await get(`/user/${id}/favorites`, { page: 1, page_size: 20 }); userFavorites.value = res.data?.items || res.data || [] } catch { userFavorites.value = [] }
 }
 
 watch(activeTab, (tab) => {
@@ -183,37 +181,21 @@ async function handleFollow() {
       isFollowing.value = true
       if (profile.value) profile.value.fans_count++
     }
-  } catch { message.error('操作失败') }
-  finally { followLoading.value = false }
+  } catch { message.error('操作失败') } finally { followLoading.value = false }
 }
 
 async function saveProfile() {
-  if (!editForm.value.username.trim()) {
-    message.warning('用户名不能为空')
-    return
-  }
+  if (!editForm.value.username.trim()) { message.warning('用户名不能为空'); return }
   saving.value = true
-  try {
-    await put('/user/profile', editForm.value)
-    showEditModal.value = false
-    message.success('保存成功')
-    fetchProfile()
-  } catch { message.error('保存失败') }
-  finally { saving.value = false }
+  try { await put('/user/profile', editForm.value); showEditModal.value = false; message.success('保存成功'); fetchProfile() } catch { message.error('保存失败') } finally { saving.value = false }
 }
 
-watch(() => route.params.id, () => {
-  fetchProfile()
-  fetchArticles()
-  activeTab.value = 'articles'
-})
+watch(() => route.params.id, () => { fetchProfile(); fetchArticles(); activeTab.value = 'articles' })
 
 onMounted(() => {
   fetchProfile()
   const tab = route.query.tab as string
-  if (tab && ['articles', 'prompts', 'favorites'].includes(tab)) {
-    activeTab.value = tab
-  }
+  if (tab && ['articles', 'prompts', 'favorites'].includes(tab)) { activeTab.value = tab }
   fetchArticles()
 })
 </script>

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="min-h-screen bg-gray-50 flex flex-col">
     <header class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
       <div class="flex items-center gap-4">
@@ -65,7 +65,7 @@ const route = useRoute()
 const userStore = useUserStore()
 
 const expandedGroups = reactive<Record<string, boolean>>({
-  content: true,
+  content: false,
   users: false,
   security: false,
   operations: false,
