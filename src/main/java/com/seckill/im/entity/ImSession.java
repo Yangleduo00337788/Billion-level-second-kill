@@ -1,5 +1,6 @@
 package com.seckill.im.entity;
 
+import com.mybatisflex.annotation.Column;
 import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
@@ -30,6 +31,7 @@ public class ImSession {
 
     private LocalDateTime lastMsgTime;
 
+    @Column(ignore = true)
     private Long lastMsgSenderId;
 
     private Integer status;

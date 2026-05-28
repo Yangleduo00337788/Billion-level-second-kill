@@ -38,6 +38,12 @@ public class UserProfile implements Serializable {
 
     private String bio;
 
+    @Column(ignore = true)
+    private String email;
+
+    @Column(ignore = true)
+    private String phone;
+
     @Column(onInsertValue = "now()")
     private LocalDateTime createTime;
 

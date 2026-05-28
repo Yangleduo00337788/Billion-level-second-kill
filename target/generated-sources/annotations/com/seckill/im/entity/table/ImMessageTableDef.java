@@ -18,11 +18,7 @@ public class ImMessageTableDef extends TableDef {
 
     public final QueryColumn MSG_TYPE = new QueryColumn(this, "msg_type");
 
-    public final QueryColumn MEDIA_URL = new QueryColumn(this, "media_url");
-
     public final QueryColumn SENDER_ID = new QueryColumn(this, "sender_id");
-
-    public final QueryColumn MEDIA_SIZE = new QueryColumn(this, "media_size");
 
     public final QueryColumn SESSION_ID = new QueryColumn(this, "session_id");
 
@@ -32,10 +28,6 @@ public class ImMessageTableDef extends TableDef {
 
     public final QueryColumn CLIENT_MSG_ID = new QueryColumn(this, "client_msg_id");
 
-    public final QueryColumn MEDIA_DURATION = new QueryColumn(this, "media_duration");
-
-    public final QueryColumn MEDIA_THUMB_URL = new QueryColumn(this, "media_thumb_url");
-
     /**
      * 所有字段。
      */
@@ -44,7 +36,7 @@ public class ImMessageTableDef extends TableDef {
     /**
      * 默认字段，不包含逻辑删除或者 large 等字段。
      */
-    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, SEQ, STATUS, CONTENT, MSG_TYPE, MEDIA_URL, SENDER_ID, MEDIA_SIZE, SESSION_ID, CREATE_TIME, RECALL_TIME, CLIENT_MSG_ID, MEDIA_DURATION, MEDIA_THUMB_URL};
+    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, SEQ, STATUS, CONTENT, MSG_TYPE, SENDER_ID, SESSION_ID, CREATE_TIME, RECALL_TIME, CLIENT_MSG_ID};
 
     public ImMessageTableDef() {
         super("", "im_message");

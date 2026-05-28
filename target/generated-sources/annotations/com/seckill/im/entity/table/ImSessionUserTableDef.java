@@ -12,10 +12,6 @@ public class ImSessionUserTableDef extends TableDef {
 
     public final QueryColumn USER_ID = new QueryColumn(this, "user_id");
 
-    public final QueryColumn IS_MUTED = new QueryColumn(this, "is_muted");
-
-    public final QueryColumn IS_PINNED = new QueryColumn(this, "is_pinned");
-
     public final QueryColumn SESSION_ID = new QueryColumn(this, "session_id");
 
     public final QueryColumn JOINED_TIME = new QueryColumn(this, "joined_time");
@@ -30,7 +26,7 @@ public class ImSessionUserTableDef extends TableDef {
     /**
      * 默认字段，不包含逻辑删除或者 large 等字段。
      */
-    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, USER_ID, IS_MUTED, IS_PINNED, SESSION_ID, JOINED_TIME, LAST_READ_MSG_SEQ};
+    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, USER_ID, SESSION_ID, JOINED_TIME, LAST_READ_MSG_SEQ};
 
     public ImSessionUserTableDef() {
         super("", "im_session_user");

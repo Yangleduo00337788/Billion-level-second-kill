@@ -12,8 +12,6 @@ public class ImGroupTableDef extends TableDef {
 
     public final QueryColumn AVATAR = new QueryColumn(this, "avatar");
 
-    public final QueryColumn NOTICE = new QueryColumn(this, "notice");
-
     public final QueryColumn STATUS = new QueryColumn(this, "status");
 
     public final QueryColumn OWNER_ID = new QueryColumn(this, "owner_id");
@@ -22,11 +20,7 @@ public class ImGroupTableDef extends TableDef {
 
     public final QueryColumn CREATE_TIME = new QueryColumn(this, "create_time");
 
-    public final QueryColumn MAX_MEMBERS = new QueryColumn(this, "max_members");
-
     public final QueryColumn UPDATE_TIME = new QueryColumn(this, "update_time");
-
-    public final QueryColumn DESCRIPTION = new QueryColumn(this, "description");
 
     public final QueryColumn MEMBER_COUNT = new QueryColumn(this, "member_count");
 
@@ -38,7 +32,7 @@ public class ImGroupTableDef extends TableDef {
     /**
      * 默认字段，不包含逻辑删除或者 large 等字段。
      */
-    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, AVATAR, NOTICE, STATUS, OWNER_ID, GROUP_NAME, CREATE_TIME, MAX_MEMBERS, UPDATE_TIME, DESCRIPTION, MEMBER_COUNT};
+    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, AVATAR, STATUS, OWNER_ID, GROUP_NAME, CREATE_TIME, UPDATE_TIME, MEMBER_COUNT};
 
     public ImGroupTableDef() {
         super("", "im_group");

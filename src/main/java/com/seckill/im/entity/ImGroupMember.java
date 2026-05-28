@@ -1,5 +1,6 @@
 package com.seckill.im.entity;
 
+import com.mybatisflex.annotation.Column;
 import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
@@ -26,13 +27,17 @@ public class ImGroupMember {
 
     private Integer role;
 
+    @Column(ignore = true)
     private String nicknameInGroup;
 
+    @Column(ignore = true)
     private Integer isMuted;
 
+    @Column(ignore = true)
     private LocalDateTime mutedUntil;
 
     private LocalDateTime joinedTime;
 
+    @Column(ignore = true)
     private Long lastReadSeq;
 }

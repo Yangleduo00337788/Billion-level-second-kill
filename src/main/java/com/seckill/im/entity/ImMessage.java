@@ -1,5 +1,6 @@
 package com.seckill.im.entity;
 
+import com.mybatisflex.annotation.Column;
 import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
@@ -30,12 +31,16 @@ public class ImMessage {
 
     private String content;
 
+    @Column(ignore = true)
     private String mediaUrl;
 
+    @Column(ignore = true)
     private String mediaThumbUrl;
 
+    @Column(ignore = true)
     private Integer mediaDuration;
 
+    @Column(ignore = true)
     private Long mediaSize;
 
     private Long seq;

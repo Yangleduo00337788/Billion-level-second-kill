@@ -1,6 +1,7 @@
 package com.seckill.usersystem.dto;
 
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -8,9 +9,6 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
 
-/**
- * 用户资料DTO
- */
 @Data
 public class UserProfileDTO implements Serializable {
 
@@ -40,4 +38,11 @@ public class UserProfileDTO implements Serializable {
 
     @Size(max = 500, message = "个人简介长度不能超过500")
     private String bio;
+
+    @Email(message = "邮箱格式不正确")
+    @Size(max = 100, message = "邮箱长度不能超过100")
+    private String email;
+
+    @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")
+    private String phone;
 }

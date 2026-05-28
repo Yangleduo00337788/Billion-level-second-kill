@@ -19,6 +19,8 @@ public interface IDeviceService {
 
     void removeAllOtherDevices(Long userId, String currentDeviceId);
 
+    void removeSameTypeDevices(Long userId, String deviceType, String currentDeviceId);
+
     void setDeviceTrusted(Long userId, String deviceId, boolean trusted);
 
     boolean isDeviceTrusted(Long userId, String deviceId);
@@ -26,4 +28,6 @@ public interface IDeviceService {
     List<Device> getDevicesByUserId(Long userId);
 
     int getDeviceCount(Long userId);
+
+    boolean hasSameTypeDevice(Long userId, String deviceType);
 }

@@ -70,6 +70,11 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         request.setAttribute("userId", userId);
         request.setAttribute("username", jwtUtil.getUsername(token));
         request.setAttribute("deviceId", deviceId);
+        request.setAttribute("roles", jwtUtil.getRoles(token));
+        request.setAttribute("permissions", jwtUtil.getPermissions(token));
+        request.setAttribute("sessionId", jwtUtil.getSessionId(token));
+        request.setAttribute("ip", jwtUtil.getIp(token));
+        request.setAttribute("jti", jwtUtil.getJti(token));
 
         return true;
     }

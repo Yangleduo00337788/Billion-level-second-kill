@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -26,6 +28,7 @@ public class DeviceServiceImpl implements IDeviceService {
     private final RedisUtil redisUtil;
 
     private static final String DEVICE_TRUSTED_KEY = "device:trusted:";
+    private static final String USER_DEVICES_SET_KEY = "user:devices:";
 
     @Override
     public Device getDevice(Long userId, String deviceId) {
@@ -39,6 +42,7 @@ public class DeviceServiceImpl implements IDeviceService {
     @Transactional(rollbackFor = Exception.class)
     public Device saveDevice(Device device) {
         deviceMapper.insert(device);
+        addDeviceToCache(device.getUserId(), device.getDeviceId());
         return device;
     }
 
@@ -67,6 +71,7 @@ public class DeviceServiceImpl implements IDeviceService {
             deviceMapper.deleteById(device.getId());
             redisUtil.delete("user:token:" + userId + ":" + deviceId);
             redisUtil.delete("user:refresh:" + userId + ":" + deviceId);
+            removeDeviceFromCache(userId, deviceId);
             log.info("移除设备: userId={}, deviceId={}", userId, deviceId);
         }
     }
@@ -80,6 +85,22 @@ public class DeviceServiceImpl implements IDeviceService {
                 deviceMapper.deleteById(device.getId());
                 redisUtil.delete("user:token:" + userId + ":" + device.getDeviceId());
                 redisUtil.delete("user:refresh:" + userId + ":" + device.getDeviceId());
+                removeDeviceFromCache(userId, device.getDeviceId());
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeSameTypeDevices(Long userId, String deviceType, String currentDeviceId) {
+        List<Device> devices = getDevicesByUserId(userId);
+        for (Device device : devices) {
+            if (device.getDeviceType().equals(deviceType)
+                    && !device.getDeviceId().equals(currentDeviceId)) {
+                deviceMapper.deleteById(device.getId());
+                redisUtil.delete("user:token:" + userId + ":" + device.getDeviceId());
+                redisUtil.delete("user:refresh:" + userId + ":" + device.getDeviceId());
+                removeDeviceFromCache(userId, device.getDeviceId());
             }
         }
     }
@@ -116,7 +137,30 @@ public class DeviceServiceImpl implements IDeviceService {
 
     @Override
     public int getDeviceCount(Long userId) {
+        Set<String> cached = getCachedDeviceIds(userId);
+        if (!cached.isEmpty()) {
+            return cached.size();
+        }
         return getDevicesByUserId(userId).size();
+    }
+
+    @Override
+    public boolean hasSameTypeDevice(Long userId, String deviceType) {
+        List<Device> devices = getDevicesByUserId(userId);
+        return devices.stream().anyMatch(d -> d.getDeviceType().equals(deviceType));
+    }
+
+    private void addDeviceToCache(Long userId, String deviceId) {
+        redisUtil.setAdd(USER_DEVICES_SET_KEY + userId, deviceId);
+        redisUtil.expire(USER_DEVICES_SET_KEY + userId, 90 * 24 * 3600);
+    }
+
+    private void removeDeviceFromCache(Long userId, String deviceId) {
+        redisUtil.setRemove(USER_DEVICES_SET_KEY + userId, deviceId);
+    }
+
+    private Set<String> getCachedDeviceIds(Long userId) {
+        return redisUtil.setMembers(USER_DEVICES_SET_KEY + userId);
     }
 
     private DeviceVO convertToDeviceVO(Device device, String currentDeviceId) {

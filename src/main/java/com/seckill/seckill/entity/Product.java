@@ -1,5 +1,6 @@
 package com.seckill.seckill.entity;
 
+import com.mybatisflex.annotation.Column;
 import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
@@ -29,6 +30,7 @@ public class Product {
 
     private String mainImage;
 
+    @Column(ignore = true)
     private String detailImages;
 
     private BigDecimal originalPrice;
@@ -39,6 +41,7 @@ public class Product {
 
     private Integer soldCount;
 
+    @Column(ignore = true)
     private Long categoryId;
 
     private Integer status;

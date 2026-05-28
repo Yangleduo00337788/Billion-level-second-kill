@@ -2,7 +2,7 @@
 -- 企业级IM即时通讯系统数据库脚本
 -- 数据库：MySQL 8.0+
 -- 字符集：utf8mb4
--- ⚠ 注意：生产环境必须分库分表，此处仅展示逻辑表结构
+-- [WARNING] 注意：生产环境必须分库分表，此处仅展示逻辑表结构
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS `im_system` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

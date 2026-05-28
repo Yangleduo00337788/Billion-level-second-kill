@@ -26,8 +26,6 @@ public class ImSessionTableDef extends TableDef {
 
     public final QueryColumn LAST_MSG_CONTENT = new QueryColumn(this, "last_msg_content");
 
-    public final QueryColumn LAST_MSG_SENDER_ID = new QueryColumn(this, "last_msg_sender_id");
-
     /**
      * 所有字段。
      */
@@ -36,7 +34,7 @@ public class ImSessionTableDef extends TableDef {
     /**
      * 默认字段，不包含逻辑删除或者 large 等字段。
      */
-    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, STATUS, GROUP_ID, LAST_MSG_ID, CREATE_TIME, UPDATE_TIME, LAST_MSG_TIME, SESSION_TYPE, LAST_MSG_CONTENT, LAST_MSG_SENDER_ID};
+    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, STATUS, GROUP_ID, LAST_MSG_ID, CREATE_TIME, UPDATE_TIME, LAST_MSG_TIME, SESSION_TYPE, LAST_MSG_CONTENT};
 
     public ImSessionTableDef() {
         super("", "im_session");

@@ -16,15 +16,7 @@ public class ImGroupMemberTableDef extends TableDef {
 
     public final QueryColumn GROUP_ID = new QueryColumn(this, "group_id");
 
-    public final QueryColumn IS_MUTED = new QueryColumn(this, "is_muted");
-
     public final QueryColumn JOINED_TIME = new QueryColumn(this, "joined_time");
-
-    public final QueryColumn MUTED_UNTIL = new QueryColumn(this, "muted_until");
-
-    public final QueryColumn LAST_READ_SEQ = new QueryColumn(this, "last_read_seq");
-
-    public final QueryColumn NICKNAME_IN_GROUP = new QueryColumn(this, "nickname_in_group");
 
     /**
      * 所有字段。
@@ -34,7 +26,7 @@ public class ImGroupMemberTableDef extends TableDef {
     /**
      * 默认字段，不包含逻辑删除或者 large 等字段。
      */
-    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, ROLE, USER_ID, GROUP_ID, IS_MUTED, JOINED_TIME, MUTED_UNTIL, LAST_READ_SEQ, NICKNAME_IN_GROUP};
+    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, ROLE, USER_ID, GROUP_ID, JOINED_TIME};
 
     public ImGroupMemberTableDef() {
         super("", "im_group_member");

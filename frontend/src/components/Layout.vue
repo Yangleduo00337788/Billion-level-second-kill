@@ -79,8 +79,8 @@
                 购物车
                 <span class="cart-count" v-if="cartCount > 0">{{ cartCount }}</span>
               </router-link>
-              <div class="nav-admin tool-admin">
-                <button class="tool-link tool-user-btn" :class="{ active: currentRoute.startsWith('/profile') || currentRoute.startsWith('/devices') }" @click="showUserMenu = !showUserMenu">
+              <div class="tool-user">
+                <button class="tool-link tool-user-btn" @click="showUserMenu = !showUserMenu">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-user">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
@@ -96,15 +96,6 @@
                     </svg>
                     个人资料
                   </router-link>
-                  <router-link to="/devices" class="admin-drop-item" :class="{ active: currentRoute === '/devices' }">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                      <line x1="8" y1="21" x2="16" y2="21"/>
-                      <line x1="12" y1="17" x2="12" y2="21"/>
-                    </svg>
-                    设备管理
-                  </router-link>
-                  <div class="dropdown-divider"></div>
                   <a class="admin-drop-item logout-item" @click="handleLogout">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -142,23 +133,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
               秒杀专区
             </router-link>
-            <div class="nav-admin" ref="adminRef">
-              <button class="nav-link nav-admin-trigger" :class="{ active: currentRoute.startsWith('/users') || currentRoute.startsWith('/roles') }" @click="showAdminMenu = !showAdminMenu">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                后台管理
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="admin-arrow" :class="{ open: showAdminMenu }"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="admin-dropdown" v-show="showAdminMenu" @mouseleave="showAdminMenu = false">
-                <router-link to="/users" class="admin-drop-item" :class="{ active: currentRoute === '/users' }">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                  用户管理
-                </router-link>
-                <router-link to="/roles" class="admin-drop-item" :class="{ active: currentRoute === '/roles' }">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                  角色管理
-                </router-link>
-              </div>
-            </div>
+            
           </div>
         </div>
 
@@ -243,7 +218,6 @@ const userStore = useUserStore()
 
 const searchKeyword = ref('')
 const showCategoryPanel = ref(false)
-const showAdminMenu = ref(false)
 const showUserMenu = ref(false)
 const cartCount = ref(0)
 const categories = ref([])
@@ -660,11 +634,11 @@ onMounted(() => {
   height: 16px;
 }
 
-.tool-admin {
+.tool-user {
   position: relative;
 }
 
-.tool-admin .admin-dropdown {
+.tool-user .admin-dropdown {
   right: 0;
   left: auto;
 }
@@ -798,18 +772,7 @@ onMounted(() => {
   border-radius: 2px;
 }
 
-.nav-admin {
-  position: relative;
-}
 
-.nav-admin-trigger {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
 
 .admin-arrow {
   width: 14px;

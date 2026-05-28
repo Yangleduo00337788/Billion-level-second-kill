@@ -1,5 +1,6 @@
 package com.seckill.im.entity;
 
+import com.mybatisflex.annotation.Column;
 import com.mybatisflex.annotation.Id;
 import com.mybatisflex.annotation.KeyType;
 import com.mybatisflex.annotation.Table;
@@ -28,10 +29,13 @@ public class ImGroup {
 
     private Integer memberCount;
 
+    @Column(ignore = true)
     private Integer maxMembers;
 
+    @Column(ignore = true)
     private String description;
 
+    @Column(ignore = true)
     private String notice;
 
     private Integer status;

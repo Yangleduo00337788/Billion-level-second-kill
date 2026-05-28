@@ -44,18 +44,6 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/users',
-    name: 'UserManagement',
-    component: () => import('../views/UserManagement.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/roles',
-    name: 'RoleManagement',
-    component: () => import('../views/RoleManagement.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/im',
     name: 'IM',
     component: () => import('../views/IM.vue'),
@@ -68,10 +56,31 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/devices',
-    name: 'Devices',
-    component: () => import('../views/Devices.vue'),
-    meta: { requiresAuth: true }
+    path: '/admin',
+    component: () => import('../components/AdminLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'AdminDashboard',
+        component: () => import('../views/AdminDashboard.vue')
+      },
+      {
+        path: 'user',
+        name: 'AdminUser',
+        component: () => import('../views/AdminUser.vue')
+      },
+      {
+        path: 'seckill',
+        name: 'AdminSeckill',
+        component: () => import('../views/AdminSeckill.vue')
+      },
+      {
+        path: 'im',
+        name: 'AdminIm',
+        component: () => import('../views/AdminIm.vue')
+      }
+    ]
   }
 ]
 

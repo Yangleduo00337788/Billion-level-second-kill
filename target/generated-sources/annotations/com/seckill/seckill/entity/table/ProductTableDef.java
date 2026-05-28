@@ -20,8 +20,6 @@ public class ProductTableDef extends TableDef {
 
     public final QueryColumn SOLD_COUNT = new QueryColumn(this, "sold_count");
 
-    public final QueryColumn CATEGORY_ID = new QueryColumn(this, "category_id");
-
     public final QueryColumn CREATE_TIME = new QueryColumn(this, "create_time");
 
     public final QueryColumn TOTAL_STOCK = new QueryColumn(this, "total_stock");
@@ -31,8 +29,6 @@ public class ProductTableDef extends TableDef {
     public final QueryColumn DESCRIPTION = new QueryColumn(this, "description");
 
     public final QueryColumn PRODUCT_NAME = new QueryColumn(this, "product_name");
-
-    public final QueryColumn DETAIL_IMAGES = new QueryColumn(this, "detail_images");
 
     public final QueryColumn ORIGINAL_PRICE = new QueryColumn(this, "original_price");
 
@@ -44,7 +40,7 @@ public class ProductTableDef extends TableDef {
     /**
      * 默认字段，不包含逻辑删除或者 large 等字段。
      */
-    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, PRICE, TITLE, STATUS, MAIN_IMAGE, SOLD_COUNT, CATEGORY_ID, CREATE_TIME, TOTAL_STOCK, UPDATE_TIME, DESCRIPTION, PRODUCT_NAME, DETAIL_IMAGES, ORIGINAL_PRICE};
+    public final QueryColumn[] DEFAULT_COLUMNS = new QueryColumn[]{ID, PRICE, TITLE, STATUS, MAIN_IMAGE, SOLD_COUNT, CREATE_TIME, TOTAL_STOCK, UPDATE_TIME, DESCRIPTION, PRODUCT_NAME, ORIGINAL_PRICE};
 
     public ProductTableDef() {
         super("", "sk_product");

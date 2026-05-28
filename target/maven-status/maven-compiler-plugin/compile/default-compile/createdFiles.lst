@@ -1,0 +1,9 @@
+com\seckill\admin\controller\AdminImController.class
+com\seckill\admin\controller\AdminDashboardController.class
+com\seckill\usersystem\config\AsyncConfig.class
+com\seckill\admin\controller\AdminSeckillController.class
+com\seckill\im\mapper\ImGroupMapper.class
+com\seckill\usersystem\annotation\PermissionAspect.class
+com\seckill\usersystem\annotation\RequirePermission.class
+com\seckill\usersystem\annotation\RequirePermission$Logical.class
+com\seckill\admin\controller\AdminUserController.class
