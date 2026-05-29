@@ -1,9 +1,12 @@
-﻿package router
+package router
 
 import (
+	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"inference-engine/internal/admin"
 	"inference-engine/internal/ai"
@@ -47,6 +50,9 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	// Page view recording middleware (for frontend pages)
 	r.Use(middleware.PageViewRecorder(db))
 
+	// IP 黑名单中间件
+	r.Use(middleware.IPBlacklist())
+
 	if rdb != nil {
 		rateLimitCfg := middleware.NewRateLimitConfig(rdb)
 		r.Use(middleware.RateLimit(rateLimitCfg))
@@ -63,7 +69,10 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	r.GET("/api/v1/user/:id/tags", func(c *gin.Context) {
 		idStr := c.Param("id")
 		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil { response.Error(c, response.ErrBadRequest, "invalid id"); return }
+		if err != nil {
+			response.Error(c, response.ErrBadRequest, "invalid id")
+			return
+		}
 		var tags []admin.UserTag
 		db.Where("user_id = ?", id).Find(&tags)
 		response.Success(c, tags)
@@ -102,7 +111,7 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	comment.RegisterRoutes(r.Group("/api/v1"), r.Group("/api/v1/articles"), commentHandler)
 
 	promptRepo := prompt.NewRepository(db)
-	promptSvc := prompt.NewService(promptRepo)
+	promptSvc := prompt.NewService(promptRepo, db)
 	promptHandler := prompt.NewHandler(promptSvc)
 	prompt.RegisterRoutes(r.Group("/api/v1"), promptHandler)
 
@@ -118,7 +127,108 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	r.GET("/api/v1/announcements", func(c *gin.Context) {
 		var items []admin.Announcement
 		db.Where("status = ?", 1).Order("priority DESC, created_at DESC").Limit(20).Find(&items)
-		response.Success(c, items)
+
+		// 获取当前用户ID（如果已登录）
+		var userID uint
+		if uid, exists := c.Get("userID"); exists {
+			if id, ok := uid.(uint); ok {
+				userID = id
+			}
+		}
+
+		// 构建返回结果，包含已读状态
+		type AnnouncementWithRead struct {
+			admin.Announcement
+			IsRead bool `json:"is_read"`
+		}
+
+		var results []AnnouncementWithRead
+		for _, item := range items {
+			isRead := false
+			if userID > 0 {
+				var count int64
+				db.Model(&admin.AnnouncementRead{}).Where("user_id = ? AND announcement_id = ?", userID, item.ID).Count(&count)
+				isRead = count > 0
+			}
+			results = append(results, AnnouncementWithRead{
+				Announcement: item,
+				IsRead:       isRead,
+			})
+		}
+
+		response.Success(c, results)
+	})
+
+	// Mark announcement as read
+	r.POST("/api/v1/announcements/:id/read", middleware.Auth(), func(c *gin.Context) {
+		idStr := c.Param("id")
+		id, err := strconv.ParseUint(idStr, 10, 64)
+		if err != nil {
+			response.Error(c, response.ErrBadRequest, "invalid id")
+			return
+		}
+
+		userID := middleware.GetUserID(c)
+
+		// 检查是否已读
+		var count int64
+		db.Model(&admin.AnnouncementRead{}).Where("user_id = ? AND announcement_id = ?", userID, id).Count(&count)
+		if count == 0 {
+			// 创建已读记录
+			read := admin.AnnouncementRead{
+				UserID:         userID,
+				AnnouncementID: uint(id),
+				ReadAt:         time.Now(),
+			}
+			db.Create(&read)
+		}
+
+		response.Success(c, nil)
+	})
+
+	// Mark all announcements as read
+	r.POST("/api/v1/announcements/read-all", middleware.Auth(), func(c *gin.Context) {
+		userID := middleware.GetUserID(c)
+
+		// 获取所有公告ID
+		var announcements []admin.Announcement
+		db.Where("status = ?", 1).Find(&announcements)
+
+		// 批量创建已读记录
+		for _, ann := range announcements {
+			var count int64
+			db.Model(&admin.AnnouncementRead{}).Where("user_id = ? AND announcement_id = ?", userID, ann.ID).Count(&count)
+			if count == 0 {
+				read := admin.AnnouncementRead{
+					UserID:         userID,
+					AnnouncementID: ann.ID,
+					ReadAt:         time.Now(),
+				}
+				db.Create(&read)
+			}
+		}
+
+		response.Success(c, nil)
+	})
+
+	// Get unread announcements count
+	r.GET("/api/v1/announcements/unread-count", middleware.Auth(), func(c *gin.Context) {
+		userID := middleware.GetUserID(c)
+
+		// 获取所有公告数量
+		var totalAnnouncements int64
+		db.Model(&admin.Announcement{}).Where("status = ?", 1).Count(&totalAnnouncements)
+
+		// 获取已读公告数量
+		var readCount int64
+		db.Model(&admin.AnnouncementRead{}).Where("user_id = ?", userID).Count(&readCount)
+
+		unreadCount := totalAnnouncements - readCount
+		if unreadCount < 0 {
+			unreadCount = 0
+		}
+
+		response.Success(c, gin.H{"count": unreadCount})
 	})
 
 	// Page view recording endpoint (for SPA)
@@ -289,8 +399,16 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 	notifySvc := notify.NewService(db)
 	r.GET("/api/v1/notifications", middleware.Auth(), func(c *gin.Context) {
 		userID := middleware.GetUserID(c)
-		notifications, total, _ := notifySvc.List(userID, 1, 20)
-		response.Page(c, notifications, total, 1, 20)
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+		if page < 1 {
+			page = 1
+		}
+		if pageSize < 1 || pageSize > 100 {
+			pageSize = 20
+		}
+		notifications, total, _ := notifySvc.List(userID, page, pageSize)
+		response.Page(c, notifications, total, page, pageSize)
 	})
 
 	r.GET("/api/v1/notifications/unread-count", middleware.Auth(), func(c *gin.Context) {
@@ -315,12 +433,37 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 			response.Error(c, response.ErrBadRequest, "no file provided")
 			return
 		}
-		dst := "./uploads/" + file.Filename
-		c.SaveUploadedFile(file, dst)
-		response.Success(c, gin.H{"url": "/uploads/" + file.Filename})
+
+		// 文件大小限制 (10MB)
+		if file.Size > 10*1024*1024 {
+			response.Error(c, response.ErrBadRequest, "文件大小不能超过10MB")
+			return
+		}
+
+		// 文件扩展名白名单
+		allowedExts := map[string]bool{
+			".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+			".pdf": true, ".doc": true, ".docx": true, ".md": true,
+		}
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if !allowedExts[ext] {
+			response.Error(c, response.ErrBadRequest, "不支持的文件类型")
+			return
+		}
+
+		// 使用时间戳重命名文件，防止路径遍历
+		newFilename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+		dst := "./uploads/" + newFilename
+
+		if err := c.SaveUploadedFile(file, dst); err != nil {
+			response.Error(c, response.ErrInternal, "文件上传失败")
+			return
+		}
+
+		response.Success(c, gin.H{"url": "/uploads/" + newFilename})
 	})
 
-	adminHandler := admin.NewHandler(db)
+	adminHandler := admin.NewHandlerWithAI(db, aiService)
 	adminGroup := r.Group("/api/v1/admin")
 	adminGroup.Use(middleware.Auth(), middleware.AdminOnly(), middleware.AdminAuditLog(adminHandler))
 	{
@@ -394,6 +537,7 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 		// System
 		adminGroup.GET("/configs", adminHandler.ListConfigs)
 		adminGroup.PUT("/configs/:id", adminHandler.UpdateConfig)
+		adminGroup.POST("/configs", adminHandler.CreateOrUpdateConfig)
 		adminGroup.GET("/ai-config", adminHandler.GetAIConfig)
 		adminGroup.PUT("/ai-config", adminHandler.UpdateAIConfig)
 		adminGroup.POST("/ai-config/test", adminHandler.TestAIConnection)
@@ -411,5 +555,3 @@ func SetupRouter(db *gorm.DB, rdb *redis.Client, aiService *ai.Service) *gin.Eng
 
 	return r
 }
-
-

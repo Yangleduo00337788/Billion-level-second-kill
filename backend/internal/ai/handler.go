@@ -1,6 +1,8 @@
 package ai
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 
 	"inference-engine/internal/middleware"
@@ -70,7 +72,10 @@ func (h *Handler) StreamChat(c *gin.Context) {
 		if !ok {
 			return false
 		}
-		c.SSEvent("message", content)
+		// 返回 JSON 格式，前端期望 { "content": "..." }
+		jsonData, _ := json.Marshal(gin.H{"content": content})
+		// 直接写入 SSE 格式，避免 c.SSEvent 对字符串添加引号
+		fmt.Fprintf(w, "data: %s\n\n", jsonData)
 		return true
 	})
 }

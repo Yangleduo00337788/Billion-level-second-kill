@@ -68,12 +68,14 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { get, post } from '@/api/request'
+import { useUserStore } from '@/stores/user'
 import type { Prompt } from '@/types/api'
 import { formatDate, formatCount, parseTags } from '@/utils/helpers'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const userStore = useUserStore()
 
 const prompt = ref<Prompt | null>(null)
 const loading = ref(true)
@@ -102,6 +104,8 @@ async function handleLike() {
     await post(`/prompts/${route.params.id}/like`, {})
     liked.value = !liked.value
     if (prompt.value) prompt.value.like_count += liked.value ? 1 : -1
+    // 刷新用户信息（积分可能变化）
+    userStore.fetchProfile()
   } catch {
     message.error('操作失败')
   }

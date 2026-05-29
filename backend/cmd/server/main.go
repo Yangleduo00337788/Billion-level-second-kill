@@ -25,6 +25,10 @@ func main() {
 	config.Init()
 	cfg := config.Get()
 
+	// 确保必要的目录存在
+	os.MkdirAll("./uploads", 0755)
+	os.MkdirAll("./logs", 0755)
+
 	// 同时输出到文件和控制台（GoLand Run窗口可见）
 	lumberjackLogger := &lumberjack.Logger{
 		Filename:   "./logs/app.log",

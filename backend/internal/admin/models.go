@@ -1,4 +1,4 @@
-﻿package admin
+package admin
 
 import (
 	"strings"
@@ -16,6 +16,18 @@ type Announcement struct {
 	Author    string    `gorm:"size:50" json:"author"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AnnouncementRead 记录用户已读公告
+type AnnouncementRead struct {
+	ID             uint      `gorm:"primarykey" json:"id"`
+	UserID         uint      `gorm:"index;not null" json:"user_id"`
+	AnnouncementID uint      `gorm:"index;not null" json:"announcement_id"`
+	ReadAt         time.Time `json:"read_at"`
+}
+
+func (AnnouncementRead) TableName() string {
+	return "announcement_reads"
 }
 
 type Report struct {

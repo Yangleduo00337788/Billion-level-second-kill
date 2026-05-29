@@ -1,8 +1,11 @@
 package points
 
 import (
+	"fmt"
 	"log"
 	"time"
+
+	"inference-engine/internal/notify"
 
 	"gorm.io/gorm"
 )
@@ -36,48 +39,118 @@ func (PointsLog) TableName() string {
 }
 
 type Service struct {
-	db *gorm.DB
+	db        *gorm.DB
+	notifySvc *notify.Service
 }
 
 func NewService(db *gorm.DB) *Service {
 	db.AutoMigrate(&PointsLog{})
-	return &Service{db: db}
+	return &Service{
+		db:        db,
+		notifySvc: notify.NewService(db),
+	}
+}
+
+// 积分行为的中文描述映射
+var actionDescMap = map[string]string{
+	"register":        "用户注册",
+	"publish_article": "发布文章",
+	"publish_prompt":  "发布 Prompt",
+	"like":            "点赞",
+	"comment":         "评论",
+	"follow":          "关注",
+	"daily_login":     "每日登录",
 }
 
 // AwardPoints awards points to a user for an action
 func (s *Service) AwardPoints(userID uint, action string) {
+	log.Printf("[Points] AwardPoints called: userID=%d, action=%s", userID, action)
+
 	var rule PointsRule
 	if err := s.db.Where("action = ? AND status = 1", action).First(&rule).Error; err != nil {
+		log.Printf("[Points] No rule found for action=%s, error=%v", action, err)
 		return // No rule for this action
 	}
 
+	log.Printf("[Points] Rule found: action=%s, points=%d, limitType=%s", rule.Action, rule.Points, rule.LimitType)
+
 	if rule.Points <= 0 {
+		log.Printf("[Points] Points <= 0, skipping")
 		return
 	}
 
-	// Check limit type
-	if !s.canAward(userID, action, rule.LimitType) {
+	// Use transaction for atomicity
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Check limit type with transaction
+	if !s.canAwardWithTx(tx, userID, action, rule.LimitType) {
+		tx.Rollback()
+		log.Printf("[Points] Already awarded today, skipping")
 		return
 	}
 
 	// Update user points atomically
-	result := s.db.Exec("UPDATE users SET points = points + ? WHERE id = ? AND deleted_at IS NULL", rule.Points, userID)
+	result := tx.Exec("UPDATE users SET points = points + ? WHERE id = ? AND deleted_at IS NULL", rule.Points, userID)
 	if result.Error != nil {
-		log.Printf("Failed to award points to user %d: %v", userID, result.Error)
+		tx.Rollback()
+		log.Printf("[Points] Failed to award points to user %d: %v", userID, result.Error)
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		log.Printf("[Points] No rows affected for user %d, user may not exist", userID)
 		return
 	}
 
 	// Get new balance
 	var balance int
-	s.db.Raw("SELECT points FROM users WHERE id = ?", userID).Scan(&balance)
+	tx.Raw("SELECT points FROM users WHERE id = ?", userID).Scan(&balance)
 
 	// Log the points transaction
-	s.db.Create(&PointsLog{
+	if err := tx.Create(&PointsLog{
 		UserID:  userID,
 		Action:  action,
 		Points:  rule.Points,
 		Balance: balance,
+	}).Error; err != nil {
+		tx.Rollback()
+		log.Printf("[Points] Failed to create points log: %v", err)
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("[Points] Failed to commit transaction: %v", err)
+		return
+	}
+
+	// 发送积分变动通知 (outside transaction)
+	actionDesc := action
+	if desc, ok := actionDescMap[action]; ok {
+		actionDesc = desc
+	}
+	notifyContent := fmt.Sprintf("恭喜！您通过%s获得 %d 积分，当前积分：%d", actionDesc, rule.Points, balance)
+	log.Printf("[Points] Sending notification to user %d: %s", userID, notifyContent)
+	err := s.notifySvc.Create(&notify.CreateNotifyReq{
+		UserID:   userID,
+		ActorID:  userID,
+		Type:     "points",
+		Content:  notifyContent,
+		TargetID: userID,
 	})
+	if err != nil {
+		log.Printf("[Points] Failed to send notification: %v", err)
+	} else {
+		log.Printf("[Points] Notification sent successfully")
+	}
+
+	log.Printf("[Points] Awarded %d points to user %d for action=%s, new balance=%d", rule.Points, userID, action, balance)
 }
 
 // canAward checks if points can be awarded based on limit type
@@ -111,6 +184,40 @@ func (s *Service) canAward(userID uint, action, limitType string) bool {
 		monthStart := time.Now().Format("2006-01-") + "01"
 		var count int64
 		s.db.Model(&PointsLog{}).Where("user_id = ? AND action = ? AND created_at >= ?", userID, action, monthStart).Count(&count)
+		return count == 0
+
+	default:
+		return true
+	}
+}
+
+// canAwardWithTx checks if points can be awarded based on limit type (with transaction)
+func (s *Service) canAwardWithTx(tx *gorm.DB, userID uint, action, limitType string) bool {
+	switch limitType {
+	case "unlimited":
+		return true
+
+	case "once":
+		var count int64
+		tx.Model(&PointsLog{}).Where("user_id = ? AND action = ?", userID, action).Count(&count)
+		return count == 0
+
+	case "daily":
+		today := time.Now().Format("2006-01-02")
+		var count int64
+		tx.Model(&PointsLog{}).Where("user_id = ? AND action = ? AND DATE(created_at) = ?", userID, action, today).Count(&count)
+		return count == 0
+
+	case "weekly":
+		weekStart := getWeekStart()
+		var count int64
+		tx.Model(&PointsLog{}).Where("user_id = ? AND action = ? AND created_at >= ?", userID, action, weekStart).Count(&count)
+		return count == 0
+
+	case "monthly":
+		monthStart := time.Now().Format("2006-01-") + "01"
+		var count int64
+		tx.Model(&PointsLog{}).Where("user_id = ? AND action = ? AND created_at >= ?", userID, action, monthStart).Count(&count)
 		return count == 0
 
 	default:

@@ -1,4 +1,4 @@
-﻿package admin
+package admin
 
 import (
 	"fmt"
@@ -13,11 +13,16 @@ import (
 )
 
 type Handler struct {
-	db *gorm.DB
+	db        *gorm.DB
+	aiService interface{ ReloadConfig() }
 }
 
 func NewHandler(db *gorm.DB) *Handler {
 	return &Handler{db: db}
+}
+
+func NewHandlerWithAI(db *gorm.DB, aiService interface{ ReloadConfig() }) *Handler {
+	return &Handler{db: db, aiService: aiService}
 }
 
 func (h *Handler) CreateAuditLog(userID uint, username, action, target, detail, ip string) {
@@ -921,8 +926,48 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 		response.Error(c, response.ErrBadRequest, err.Error())
 		return
 	}
+
+	// 获取配置项的 key，检查是否是 AI 相关配置
+	var sc SystemConfig
+	h.db.First(&sc, id)
 	h.db.Model(&SystemConfig{}).Where("id = ?", id).Update("value", req.Value)
+
+	// 如果是 AI 相关配置，重新加载 AI 服务
+	if strings.HasPrefix(sc.Key, "ai_") && h.aiService != nil {
+		h.aiService.ReloadConfig()
+	}
+
 	response.Success(c, nil)
+}
+
+// CreateOrUpdateConfig 通用的配置创建或更新接口
+func (h *Handler) CreateOrUpdateConfig(c *gin.Context) {
+	var req struct {
+		Key   string `json:"key" binding:"required"`
+		Value string `json:"value"`
+		Desc  string `json:"desc"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, response.ErrBadRequest, err.Error())
+		return
+	}
+
+	var sc SystemConfig
+	if err := h.db.Where("`key` = ?", req.Key).First(&sc).Error; err != nil {
+		// 不存在则创建
+		sc = SystemConfig{Key: req.Key, Value: req.Value, Desc: req.Desc}
+		h.db.Create(&sc)
+	} else {
+		// 存在则更新
+		h.db.Model(&sc).Update("value", req.Value)
+	}
+
+	// 如果是 AI 相关配置，重新加载 AI 服务
+	if strings.HasPrefix(req.Key, "ai_") && h.aiService != nil {
+		h.aiService.ReloadConfig()
+	}
+
+	response.Success(c, sc)
 }
 
 // ===== System - AI Stats =====
@@ -1041,16 +1086,16 @@ func (h *Handler) ListAllNotifications(c *gin.Context) {
 	}
 
 	type NotificationResult struct {
-		ID         uint      `json:"id"`
-		UserID     uint      `json:"user_id"`
-		Username   string    `json:"username"`
-		ActorID    uint      `json:"actor_id"`
-		ActorName  string    `json:"actor_name"`
-		Type       string    `json:"type"`
-		Content    string    `json:"content"`
-		TargetID   uint      `json:"target_id"`
-		IsRead     bool      `json:"is_read"`
-		CreatedAt  time.Time `json:"created_at"`
+		ID        uint      `json:"id"`
+		UserID    uint      `json:"user_id"`
+		Username  string    `json:"username"`
+		ActorID   uint      `json:"actor_id"`
+		ActorName string    `json:"actor_name"`
+		Type      string    `json:"type"`
+		Content   string    `json:"content"`
+		TargetID  uint      `json:"target_id"`
+		IsRead    bool      `json:"is_read"`
+		CreatedAt time.Time `json:"created_at"`
 	}
 
 	var total int64
@@ -1158,6 +1203,11 @@ func (h *Handler) UpdateAIConfig(c *gin.Context) {
 		} else {
 			h.db.Model(&sc).Update("value", value)
 		}
+	}
+
+	// 重新加载 AI 配置
+	if h.aiService != nil {
+		h.aiService.ReloadConfig()
 	}
 
 	response.Success(c, nil)

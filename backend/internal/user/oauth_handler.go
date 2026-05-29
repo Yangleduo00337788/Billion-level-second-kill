@@ -81,6 +81,8 @@ func (h *OAuthHandler) GoogleLogin(c *gin.Context) {
 		return
 	}
 	state := generateState()
+	// 将 state 存储到 cookie 中
+	c.SetCookie("oauth_state", state, 300, "/", "", false, true)
 	redirectURL := fmt.Sprintf(
 		"https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s",
 		url.QueryEscape(h.cfg.Google.ClientID),
@@ -95,6 +97,14 @@ func (h *OAuthHandler) GoogleCallback(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
 		response.Error(c, response.ErrBadRequest, "missing code")
+		return
+	}
+
+	// 校验 state 参数
+	state := c.Query("state")
+	savedState, _ := c.Cookie("oauth_state")
+	if savedState != "" && state != savedState {
+		response.Error(c, response.ErrBadRequest, "invalid state parameter")
 		return
 	}
 

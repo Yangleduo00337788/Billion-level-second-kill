@@ -172,7 +172,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
 import { NButton, NInput, NTag, useMessage, NCollapse, NCollapseItem } from 'naive-ui'
-import { get, put } from '@/api/request'
+import { get, put, post } from '@/api/request'
 
 const message = useMessage()
 const redisConnected = ref(false)
@@ -244,8 +244,8 @@ async function saveConfigKV(key: string, value: string, desc: string) {
   if (existing) {
     await put(`/admin/configs/${existing.id}`, { value })
   } else {
-    // Create via the backend - use update endpoint with a special create-or-update
-    await put('/admin/ai-config', { [key]: value })
+    // 使用通用的创建或更新接口
+    await post('/admin/configs', { key, value, desc })
   }
 }
 

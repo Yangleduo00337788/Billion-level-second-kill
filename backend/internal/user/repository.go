@@ -69,8 +69,18 @@ func (r *Repository) CreateFollow(follow *Follow) error {
 	return r.db.Create(follow).Error
 }
 
+// CreateFollowWithTx 使用事务创建关注关系
+func (r *Repository) CreateFollowWithTx(tx *gorm.DB, follow *Follow) error {
+	return tx.Create(follow).Error
+}
+
 func (r *Repository) DeleteFollow(followerID, followedID uint) error {
 	return r.db.Where("follower_id = ? AND followed_id = ?", followerID, followedID).Delete(&Follow{}).Error
+}
+
+// DeleteFollowWithTx 使用事务删除关注关系
+func (r *Repository) DeleteFollowWithTx(tx *gorm.DB, followerID, followedID uint) error {
+	return tx.Where("follower_id = ? AND followed_id = ?", followerID, followedID).Delete(&Follow{}).Error
 }
 
 func (r *Repository) IsFollowing(followerID, followedID uint) (bool, error) {

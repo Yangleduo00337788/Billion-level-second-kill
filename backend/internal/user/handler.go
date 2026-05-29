@@ -1,4 +1,4 @@
-﻿package user
+package user
 
 import (
 	"net"
@@ -38,7 +38,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	ip := c.ClientIP()
+	ip := normalizeIP(c.ClientIP())
 	user, err := h.svc.Register(&req, ip)
 	if err != nil {
 		response.Error(c, response.ErrBadRequest, err.Error())
@@ -218,12 +218,13 @@ func RegisterRoutes(r *gin.RouterGroup, handler *Handler, oauthHandler *OAuthHan
 		auth.POST("/register", handler.Register)
 		auth.POST("/login", handler.Login)
 		auth.POST("/logout", handler.Logout)
-		auth.GET("/google", oauthHandler.GoogleLogin)
-		auth.GET("/google/callback", oauthHandler.GoogleCallback)
-		auth.GET("/github", oauthHandler.GitHubLogin)
-		auth.GET("/github/callback", oauthHandler.GitHubCallback)
-		auth.GET("/wechat", oauthHandler.WeChatLogin)
-		auth.GET("/wechat/callback", oauthHandler.WeChatCallback)
+		// OAuth 登录已禁用
+		// auth.GET("/google", oauthHandler.GoogleLogin)
+		// auth.GET("/google/callback", oauthHandler.GoogleCallback)
+		// auth.GET("/github", oauthHandler.GitHubLogin)
+		// auth.GET("/github/callback", oauthHandler.GitHubCallback)
+		// auth.GET("/wechat", oauthHandler.WeChatLogin)
+		// auth.GET("/wechat/callback", oauthHandler.WeChatCallback)
 	}
 
 	user := r.Group("/user")

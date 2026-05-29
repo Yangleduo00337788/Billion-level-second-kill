@@ -181,6 +181,8 @@ async function handleFollow() {
       isFollowing.value = true
       if (profile.value) profile.value.fans_count++
     }
+    // 刷新用户信息（积分可能变化）
+    userStore.fetchProfile()
   } catch { message.error('操作失败') } finally { followLoading.value = false }
 }
 

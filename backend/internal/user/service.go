@@ -1,7 +1,8 @@
-﻿package user
+package user
 
 import (
 	"errors"
+	"fmt"
 
 	"inference-engine/internal/admin"
 	"inference-engine/internal/notify"
@@ -31,7 +32,7 @@ func NewService(repo *Repository, db *gorm.DB) *Service {
 }
 
 type RegisterReq struct {
-	Username string `json:"username" binding:"required,min=3,max=50"`
+	Username string `json:"username" binding:"required,min=3,max=20"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6,max=32"`
 }
@@ -51,17 +52,17 @@ func (s *Service) Register(req *RegisterReq, ip string) (*User, error) {
 	var allowRegister struct{ Value string }
 	s.db.Table("system_configs").Where("`key` = ?", "allow_register").Select("value").Scan(&allowRegister)
 	if allowRegister.Value == "false" {
-		return nil, errors.New("registration is currently disabled")
+		return nil, errors.New("当前不允许注册")
 	}
 
 	existing, _ := s.repo.FindByEmail(req.Email)
 	if existing != nil {
-		return nil, errors.New("email already exists")
+		return nil, errors.New("邮箱已被注册")
 	}
 
 	existing, _ = s.repo.FindByUsername(req.Username)
 	if existing != nil {
-		return nil, errors.New("username already exists")
+		return nil, errors.New("用户名已被占用")
 	}
 
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -93,17 +94,18 @@ func (s *Service) Login(req *LoginReq, ip, userAgent string) (*LoginResp, error)
 	if err != nil {
 		// Record failed login attempt
 		s.recordLoginLog(0, "", ip, userAgent, 0)
-		return nil, errors.New("invalid email or password")
+		return nil, errors.New("邮箱或密码错误")
+	}
+
+	// 先验证密码，再检查账户状态，避免泄露账户是否存在
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		s.recordLoginLog(user.ID, user.Username, ip, userAgent, 0)
+		return nil, errors.New("邮箱或密码错误")
 	}
 
 	if user.Status == 0 {
 		s.recordLoginLog(user.ID, user.Username, ip, userAgent, 0)
-		return nil, errors.New("account has been banned")
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		s.recordLoginLog(user.ID, user.Username, ip, userAgent, 0)
-		return nil, errors.New("invalid email or password")
+		return nil, errors.New("账号已被禁用")
 	}
 
 	token, err := jwt.GenerateToken(user.ID, user.Role)
@@ -115,7 +117,8 @@ func (s *Service) Login(req *LoginReq, ip, userAgent string) (*LoginResp, error)
 	s.recordLoginLog(user.ID, user.Username, ip, userAgent, 1)
 
 	go s.auditLogSvc.LogUserAction(user.ID, "用户登录", "user", user.Username, ip)
-	go s.pointsSvc.AwardPoints(user.ID, "daily_login")
+	// 同步执行积分发放，避免并发问题
+	s.pointsSvc.AwardPoints(user.ID, "daily_login")
 
 	return &LoginResp{
 		Token: token,
@@ -154,7 +157,7 @@ func (s *Service) RecordLogout(userID uint) {
 func (s *Service) GetProfile(userID uint) (*User, error) {
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, errors.New("用户不存在")
 	}
 	return user, nil
 }
@@ -172,13 +175,13 @@ type UpdateProfileReq struct {
 func (s *Service) UpdateProfile(userID uint, req *UpdateProfileReq, ip string) (*User, error) {
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, errors.New("用户不存在")
 	}
 
 	if req.Username != "" {
 		existing, _ := s.repo.FindByUsername(req.Username)
 		if existing != nil && existing.ID != userID {
-			return nil, errors.New("username already exists")
+			return nil, errors.New("用户名已被占用")
 		}
 		user.Username = req.Username
 	}
@@ -200,17 +203,17 @@ func (s *Service) UpdateProfile(userID uint, req *UpdateProfileReq, ip string) (
 
 func (s *Service) Follow(followerID, followedID uint, ip string) error {
 	if followerID == followedID {
-		return errors.New("cannot follow yourself")
+		return errors.New("不能关注自己")
 	}
 
 	followedUser, err := s.repo.FindByID(followedID)
 	if err != nil {
-		return errors.New("user not found")
+		return errors.New("用户不存在")
 	}
 
 	following, _ := s.repo.IsFollowing(followerID, followedID)
 	if following {
-		return errors.New("already following")
+		return errors.New("已经关注了该用户")
 	}
 
 	tx := s.db.Begin()
@@ -219,7 +222,7 @@ func (s *Service) Follow(followerID, followedID uint, ip string) error {
 		FollowerID: followerID,
 		FollowedID: followedID,
 	}
-	if err := s.repo.CreateFollow(follow); err != nil {
+	if err := s.repo.CreateFollowWithTx(tx, follow); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -229,11 +232,17 @@ func (s *Service) Follow(followerID, followedID uint, ip string) error {
 
 	tx.Commit()
 
+	// 获取关注者信息
+	follower, _ := s.repo.FindByID(followerID)
+	followerName := "用户"
+	if follower != nil {
+		followerName = follower.Username
+	}
 	go s.notifySvc.Create(&notify.CreateNotifyReq{
 		UserID:   followedID,
 		ActorID:  followerID,
 		Type:     "follow",
-		Content:  "关注了你",
+		Content:  fmt.Sprintf("%s 关注了你", followerName),
 		TargetID: followerID,
 	})
 
@@ -246,20 +255,20 @@ func (s *Service) Follow(followerID, followedID uint, ip string) error {
 func (s *Service) Unfollow(followerID, followedID uint, ip string) error {
 	following, _ := s.repo.IsFollowing(followerID, followedID)
 	if !following {
-		return errors.New("not following")
+		return errors.New("未关注该用户")
 	}
 
 	followedUser, _ := s.repo.FindByID(followedID)
 
 	tx := s.db.Begin()
 
-	if err := s.repo.DeleteFollow(followerID, followedID); err != nil {
+	if err := s.repo.DeleteFollowWithTx(tx, followerID, followedID); err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	tx.Model(&User{}).Where("id = ?", followerID).UpdateColumn("follow_count", gorm.Expr("follow_count - 1"))
-	tx.Model(&User{}).Where("id = ?", followedID).UpdateColumn("fans_count", gorm.Expr("fans_count - 1"))
+	tx.Model(&User{}).Where("id = ?", followerID).UpdateColumn("follow_count", gorm.Expr("GREATEST(follow_count - 1, 0)"))
+	tx.Model(&User{}).Where("id = ?", followedID).UpdateColumn("fans_count", gorm.Expr("GREATEST(fans_count - 1, 0)"))
 
 	tx.Commit()
 

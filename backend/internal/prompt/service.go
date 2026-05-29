@@ -1,18 +1,24 @@
-﻿package prompt
+package prompt
 
 import (
 	"errors"
+	"inference-engine/internal/pkg/points"
 
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	repo *Repository
-	db   *gorm.DB
+	repo      *Repository
+	db        *gorm.DB
+	pointsSvc *points.Service
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, db *gorm.DB) *Service {
+	return &Service{
+		repo:      repo,
+		db:        db,
+		pointsSvc: points.NewService(db),
+	}
 }
 
 type CreatePromptReq struct {
@@ -54,17 +60,20 @@ func (s *Service) Create(userID uint, req *CreatePromptReq) (*Prompt, error) {
 		return nil, err
 	}
 
+	// 奖励积分
+	go s.pointsSvc.AwardPoints(userID, "publish_prompt")
+
 	return prompt, nil
 }
 
 func (s *Service) Update(id uint, userID uint, req *UpdatePromptReq) (*Prompt, error) {
 	prompt, err := s.repo.FindByID(id)
 	if err != nil {
-		return nil, errors.New("prompt not found")
+		return nil, errors.New("Prompt 不存在")
 	}
 
 	if prompt.UserID != userID {
-		return nil, errors.New("permission denied")
+		return nil, errors.New("没有权限执行此操作")
 	}
 
 	if req.Title != "" {
@@ -96,7 +105,7 @@ func (s *Service) Update(id uint, userID uint, req *UpdatePromptReq) (*Prompt, e
 func (s *Service) GetByID(id uint) (*Prompt, error) {
 	prompt, err := s.repo.FindByID(id)
 	if err != nil {
-		return nil, errors.New("prompt not found")
+		return nil, errors.New("Prompt 不存在")
 	}
 	s.repo.IncrementUsageCount(id)
 	return prompt, nil
@@ -109,11 +118,11 @@ func (s *Service) List(page, pageSize int, category, tag string, userID uint, ke
 func (s *Service) Delete(id, userID uint) error {
 	prompt, err := s.repo.FindByID(id)
 	if err != nil {
-		return errors.New("prompt not found")
+		return errors.New("Prompt 不存在")
 	}
 
 	if prompt.UserID != userID {
-		return errors.New("permission denied")
+		return errors.New("没有权限执行此操作")
 	}
 
 	return s.repo.Delete(id)
@@ -129,7 +138,7 @@ func (s *Service) GetHot(limit int) ([]Prompt, error) {
 func (s *Service) Like(userID, promptID uint) error {
 	prompt, err := s.repo.FindByID(promptID)
 	if err != nil {
-		return errors.New("prompt not found")
+		return errors.New("Prompt 不存在")
 	}
 
 	liked, _ := s.repo.IsLiked(userID, promptID)
@@ -152,7 +161,7 @@ func (s *Service) Like(userID, promptID uint) error {
 func (s *Service) Favorite(userID, promptID uint) error {
 	_, err := s.repo.FindByID(promptID)
 	if err != nil {
-		return errors.New("prompt not found")
+		return errors.New("Prompt 不存在")
 	}
 
 	favorited, _ := s.repo.IsFavorited(userID, promptID)
@@ -169,4 +178,3 @@ func (s *Service) Favorite(userID, promptID uint) error {
 	s.repo.IncrementFavoriteCount(promptID)
 	return nil
 }
-

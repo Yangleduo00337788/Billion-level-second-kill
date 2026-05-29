@@ -34,6 +34,10 @@ func GenerateToken(userID uint, role string) (string, error) {
 func ParseToken(tokenStr string) (*Claims, error) {
 	cfg := config.Get()
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		// 校验签名算法，防止算法混淆攻击
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
 		return []byte(cfg.JWT.Secret), nil
 	})
 	if err != nil {

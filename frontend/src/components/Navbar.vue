@@ -48,6 +48,18 @@
           />
         </div>
 
+        <!-- Notification Icon -->
+        <router-link
+          v-if="userStore.isAuthenticated"
+          to="/notifications"
+          class="relative p-2 text-gray-500 hover:text-dark transition-colors rounded-xl hover:bg-white/30"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span v-if="notifyUnreadCount > 0" class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary text-white text-[10px] rounded-full flex items-center justify-center font-medium">{{ notifyUnreadCount > 9 ? '9+' : notifyUnreadCount }}</span>
+        </router-link>
+
         <!-- Announcement Icon -->
         <n-popover trigger="click" :show="showAnnouncements" @update:show="showAnnouncements = $event" placement="bottom-end" :width="320">
           <template #trigger>
@@ -69,15 +81,17 @@
                 v-for="item in announcements"
                 :key="item.id"
                 class="px-3 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer"
+                :class="{ 'bg-blue-50': !item.is_read }"
                 @click="openAnnouncement(item)"
               >
                 <div class="flex items-start gap-2">
                   <span class="flex-shrink-0 w-2 h-2 rounded-full mt-1.5" :class="getPriorityColor(item.priority)"></span>
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-dark truncate">{{ item.title }}</p>
+                    <p class="text-sm font-medium text-dark truncate" :class="{ 'font-bold': !item.is_read }">{{ item.title }}</p>
                     <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ item.content }}</p>
                     <p class="text-xs text-gray-400 mt-1">{{ item.created_at }}</p>
                   </div>
+                  <div v-if="!item.is_read" class="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2"></div>
                 </div>
               </div>
             </div>
@@ -191,18 +205,29 @@
   <n-modal v-model:show="showDetailModal" preset="card" :title="currentAnnouncement?.title" style="max-width: 500px">
     <p class="text-sm text-gray-600 whitespace-pre-wrap">{{ currentAnnouncement?.content }}</p>
     <template #footer>
-      <div class="text-xs text-gray-400">{{ currentAnnouncement?.created_at }}</div>
+      <div class="flex items-center justify-between">
+        <div class="text-xs text-gray-400">{{ currentAnnouncement?.created_at }}</div>
+        <n-button
+          v-if="userStore.isAuthenticated && currentAnnouncement && !currentAnnouncement.is_read"
+          size="small"
+          type="primary"
+          @click="markAnnouncementAsRead(currentAnnouncement)"
+        >
+          标记为已读
+        </n-button>
+        <span v-else-if="currentAnnouncement?.is_read" class="text-xs text-green-500">✓ 已读</span>
+      </div>
     </template>
   </n-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NDropdown, NAvatar, NPopover, NModal } from 'naive-ui'
+import { NDropdown, NAvatar, NPopover, NModal, NButton } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
-import { get } from '@/api/request'
+import { get, post } from '@/api/request'
 import type { ThemeMode } from '@/stores/theme'
 
 const router = useRouter()
@@ -214,6 +239,7 @@ const showAnnouncements = ref(false)
 const showDetailModal = ref(false)
 const currentAnnouncement = ref<any>(null)
 const unreadCount = ref(0)
+const notifyUnreadCount = ref(0)
 const siteName = ref('推理引擎')
 
 async function fetchSiteConfig() {
@@ -222,6 +248,14 @@ async function fetchSiteConfig() {
     if (res.data?.site_name) {
       siteName.value = res.data.site_name
     }
+  } catch {}
+}
+
+async function fetchNotifyUnreadCount() {
+  if (!userStore.isAuthenticated) return
+  try {
+    const res = await get<any>('/notifications/unread-count')
+    notifyUnreadCount.value = res.data?.count || 0
   } catch {}
 }
 
@@ -300,17 +334,76 @@ function openAnnouncement(item: any) {
   showAnnouncements.value = false
 }
 
+async function markAnnouncementAsRead(item: any) {
+  if (!item || item.is_read || !userStore.isAuthenticated) return
+  try {
+    await post(`/announcements/${item.id}/read`)
+    item.is_read = true
+    fetchAnnouncements()
+  } catch {}
+}
+
 async function fetchAnnouncements() {
   try {
     const res = await get<any>('/announcements')
     const items = Array.isArray(res.data) ? res.data : (res.data?.items || [])
     announcements.value = items
-    unreadCount.value = items.filter((i: any) => i.priority >= 1).length
-  } catch {}
+    // 更新未读公告数量
+    if (userStore.isAuthenticated) {
+      const unreadRes = await get<any>('/announcements/unread-count')
+      unreadCount.value = unreadRes.data?.count || 0
+    }
+  } catch (e) {
+    console.error('Failed to fetch announcements:', e)
+  }
+}
+
+// 定时刷新未读通知数量
+let refreshTimer: number | null = null
+
+// 监听页面可见性变化，刷新未读通知数量
+const handleVisibilityChange = () => {
+  if (!document.hidden && userStore.isAuthenticated) {
+    fetchNotifyUnreadCount()
+  }
 }
 
 onMounted(() => {
   fetchAnnouncements()
   fetchSiteConfig()
+  fetchNotifyUnreadCount()
+
+  // 每 10 秒刷新一次未读通知数量
+  refreshTimer = window.setInterval(() => {
+    if (userStore.isAuthenticated) {
+      fetchNotifyUnreadCount()
+    }
+  }, 10000)
+
+  // 监听页面可见性变化
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
+
+// 监听用户登录状态变化，刷新未读通知数量
+watch(() => userStore.isAuthenticated, (newVal) => {
+  if (newVal) {
+    fetchNotifyUnreadCount()
+  } else {
+    notifyUnreadCount.value = 0
+  }
+})
+
+// 监听路由变化，刷新未读通知数量
+router.afterEach(() => {
+  if (userStore.isAuthenticated) {
+    fetchNotifyUnreadCount()
+  }
 })
 </script>

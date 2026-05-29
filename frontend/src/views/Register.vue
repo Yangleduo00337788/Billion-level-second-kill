@@ -48,7 +48,6 @@
             type="submit"
             class="glass-button-primary w-full py-3 text-sm font-medium mt-2"
             :class="{ 'opacity-60 pointer-events-none': loading }"
-            @click="handleRegister"
           >
             {{ loading ? '注册中...' : '注册' }}
           </button>
@@ -66,14 +65,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, inject } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvider'
+import { useMessage } from 'naive-ui'
 
 const router = useRouter()
 const userStore = useUserStore()
-const message = inject<MessageApiInjection>('message')!
+const message = useMessage()
 
 const formRef = ref(null)
 const loading = ref(false)
@@ -88,7 +87,7 @@ const formData = reactive({
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 2, max: 20, message: '用户名长度2-20位', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度3-20位', trigger: 'blur' }
   ],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
@@ -96,7 +95,7 @@ const rules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少6位', trigger: 'blur' }
+    { min: 6, max: 32, message: '密码长度6-32位', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
@@ -111,6 +110,13 @@ const rules = {
 }
 
 async function handleRegister() {
+  // 先触发表单验证
+  try {
+    await formRef.value?.validate()
+  } catch {
+    return
+  }
+
   loading.value = true
   try {
     await userStore.register({

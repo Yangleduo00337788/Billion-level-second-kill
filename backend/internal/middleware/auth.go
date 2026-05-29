@@ -1,4 +1,4 @@
-﻿package middleware
+package middleware
 
 import (
 	"bytes"
@@ -119,6 +119,26 @@ func AdminOnly() gin.HandlerFunc {
 	}
 }
 
+// IPBlacklist 检查 IP 是否在黑名单中
+func IPBlacklist() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if globalDB == nil {
+			c.Next()
+			return
+		}
+
+		clientIP := normalizeIP(c.ClientIP())
+		var count int64
+		globalDB.Table("ip_blacklists").Where("ip = ?", clientIP).Count(&count)
+		if count > 0 {
+			response.ErrorWithStatus(c, 403, response.ErrForbidden, "您的IP已被封禁")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 // AdminAuditLog middleware for admin write operations
 func AdminAuditLog(handler *admin.Handler) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -150,4 +170,3 @@ func AdminAuditLog(handler *admin.Handler) gin.HandlerFunc {
 		go handler.CreateAuditLog(userID, username, action, target, detail, ip)
 	}
 }
-

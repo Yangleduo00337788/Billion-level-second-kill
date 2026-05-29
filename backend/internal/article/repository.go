@@ -1,4 +1,4 @@
-﻿package article
+package article
 
 import (
 	"gorm.io/gorm"
@@ -84,7 +84,7 @@ func (r *Repository) IncrementLikeCount(id uint) error {
 }
 
 func (r *Repository) DecrementLikeCount(id uint) error {
-	return r.db.Model(&Article{}).Where("id = ?", id).UpdateColumn("like_count", gorm.Expr("like_count - 1")).Error
+	return r.db.Model(&Article{}).Where("id = ?", id).UpdateColumn("like_count", gorm.Expr("GREATEST(like_count - 1, 0)")).Error
 }
 
 func (r *Repository) IncrementCommentCount(id uint) error {
@@ -92,7 +92,7 @@ func (r *Repository) IncrementCommentCount(id uint) error {
 }
 
 func (r *Repository) DecrementCommentCount(id uint) error {
-	return r.db.Model(&Article{}).Where("id = ?", id).UpdateColumn("comment_count", gorm.Expr("comment_count - 1")).Error
+	return r.db.Model(&Article{}).Where("id = ?", id).UpdateColumn("comment_count", gorm.Expr("GREATEST(comment_count - 1, 0)")).Error
 }
 
 func (r *Repository) IncrementFavoriteCount(id uint) error {
@@ -100,7 +100,7 @@ func (r *Repository) IncrementFavoriteCount(id uint) error {
 }
 
 func (r *Repository) DecrementFavoriteCount(id uint) error {
-	return r.db.Model(&Article{}).Where("id = ?", id).UpdateColumn("favorite_count", gorm.Expr("favorite_count - 1")).Error
+	return r.db.Model(&Article{}).Where("id = ?", id).UpdateColumn("favorite_count", gorm.Expr("GREATEST(favorite_count - 1, 0)")).Error
 }
 
 func (r *Repository) GetHot(limit int) ([]Article, error) {
@@ -134,6 +134,26 @@ func (r *Repository) IsLiked(userID uint, targetType string, targetID uint) (boo
 
 func (r *Repository) CreateLike(like *Like) error {
 	return r.db.Create(like).Error
+}
+
+// ToggleLike 使用数据库操作实现原子性的点赞/取消点赞，返回是否是点赞（true）或取消点赞（false）
+func (r *Repository) ToggleLike(userID uint, targetType string, targetID uint) (bool, error) {
+	// 先尝试删除
+	result := r.db.Where("user_id = ? AND target_type = ? AND target_id = ?", userID, targetType, targetID).Delete(&Like{})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	// 如果删除了记录，说明是取消点赞
+	if result.RowsAffected > 0 {
+		return false, nil
+	}
+	// 没有删除到记录，说明之前没点赞，现在点赞
+	like := &Like{UserID: userID, TargetType: targetType, TargetID: targetID}
+	if err := r.db.Create(like).Error; err != nil {
+		// 如果创建失败（可能是唯一约束冲突），说明已经点赞了
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *Repository) DeleteLike(userID uint, targetType string, targetID uint) error {
@@ -196,4 +216,3 @@ func (r *Repository) GetUserInteraction(userID, articleID uint) (liked bool, fav
 	favorited = favCount > 0
 	return
 }
-

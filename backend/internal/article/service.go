@@ -1,4 +1,4 @@
-﻿package article
+package article
 
 import (
 	"errors"
@@ -117,11 +117,11 @@ func (s *Service) Create(userID uint, req *CreateArticleReq, ip string) (*Articl
 func (s *Service) Update(id uint, userID uint, req *UpdateArticleReq, ip string) (*Article, error) {
 	article, err := s.repo.FindByID(id)
 	if err != nil {
-		return nil, errors.New("article not found")
+		return nil, errors.New("文章不存在")
 	}
 
 	if article.UserID != userID {
-		return nil, errors.New("permission denied")
+		return nil, errors.New("没有权限执行此操作")
 	}
 
 	if req.Title != "" {
@@ -170,7 +170,7 @@ func (s *Service) Update(id uint, userID uint, req *UpdateArticleReq, ip string)
 func (s *Service) GetByID(id uint, userID uint) (*Article, error) {
 	article, err := s.repo.FindByID(id)
 	if err != nil {
-		return nil, errors.New("article not found")
+		return nil, errors.New("文章不存在")
 	}
 
 	s.repo.IncrementViewCount(id)
@@ -204,18 +204,18 @@ func (s *Service) List(page, pageSize int, status string, categoryID, userID uin
 func (s *Service) Delete(id, userID uint, ip string) error {
 	article, err := s.repo.FindByID(id)
 	if err != nil {
-		return errors.New("article not found")
+		return errors.New("文章不存在")
 	}
 
 	if article.UserID != userID {
-		return errors.New("permission denied")
+		return errors.New("没有权限执行此操作")
 	}
 
 	if err := s.repo.Delete(id); err != nil {
 		return err
 	}
 
-	s.db.Model(&user.User{}).Where("id = ?", userID).UpdateColumn("article_count", gorm.Expr("article_count - 1"))
+	s.db.Model(&user.User{}).Where("id = ?", userID).UpdateColumn("article_count", gorm.Expr("GREATEST(article_count - 1, 0)"))
 
 	// Audit log
 	go s.auditLogSvc.LogUserAction(userID, "删除文章", "article", article.Title, ip)
@@ -226,41 +226,42 @@ func (s *Service) Delete(id, userID uint, ip string) error {
 func (s *Service) LikeArticle(userID, articleID uint, ip string) error {
 	article, err := s.repo.FindByID(articleID)
 	if err != nil {
-		return errors.New("article not found")
+		return errors.New("文章不存在")
 	}
 
-	liked, _ := s.repo.IsLiked(userID, "article", articleID)
-	if liked {
-		s.repo.DeleteLike(userID, "article", articleID)
-		s.repo.DecrementLikeCount(articleID)
-		return nil
-	}
-
-	like := &Like{
-		UserID:     userID,
-		TargetType: "article",
-		TargetID:   articleID,
-	}
-	if err := s.repo.CreateLike(like); err != nil {
+	// 使用 ToggleLike 原子操作，避免并发问题
+	isLiked, err := s.repo.ToggleLike(userID, "article", articleID)
+	if err != nil {
 		return err
 	}
 
-	s.repo.IncrementLikeCount(articleID)
+	if isLiked {
+		// 点赞
+		s.repo.IncrementLikeCount(articleID)
 
-	// Trigger notification to article author
-	if article.UserID != userID {
-		go s.notifySvc.Create(&notify.CreateNotifyReq{
-			UserID:   article.UserID,
-			ActorID:  userID,
-			Type:     "like",
-			Content:  "点赞了你的文章",
-			TargetID: articleID,
-		})
+		// Trigger notification to article author
+		if article.UserID != userID {
+			actor, _ := s.userRepo.FindByID(userID)
+			actorName := "用户"
+			if actor != nil {
+				actorName = actor.Username
+			}
+			go s.notifySvc.Create(&notify.CreateNotifyReq{
+				UserID:   article.UserID,
+				ActorID:  userID,
+				Type:     "like",
+				Content:  fmt.Sprintf("%s 点赞了你的文章《%s》", actorName, article.Title),
+				TargetID: articleID,
+			})
+		}
+
+		// Audit log
+		go s.auditLogSvc.LogUserAction(userID, "点赞文章", "article", article.Title, ip)
+		go s.pointsSvc.AwardPoints(userID, "like")
+	} else {
+		// 取消点赞
+		s.repo.DecrementLikeCount(articleID)
 	}
-
-	// Audit log
-	go s.auditLogSvc.LogUserAction(userID, "点赞文章", "article", article.Title, ip)
-	go s.pointsSvc.AwardPoints(userID, "like")
 
 	return nil
 }
@@ -268,7 +269,7 @@ func (s *Service) LikeArticle(userID, articleID uint, ip string) error {
 func (s *Service) FavoriteArticle(userID, articleID uint, ip string) error {
 	article, err := s.repo.FindByID(articleID)
 	if err != nil {
-		return errors.New("article not found")
+		return errors.New("文章不存在")
 	}
 
 	favorited, _ := s.repo.IsFavorited(userID, articleID)
@@ -315,4 +316,3 @@ func (s *Service) SearchTitle(keyword string, page, pageSize int) ([]Article, in
 func (s *Service) ListCategories() ([]Category, error) {
 	return s.repo.ListCategories()
 }
-

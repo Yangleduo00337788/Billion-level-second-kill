@@ -28,8 +28,14 @@ func InitMySQL(cfg *config.DatabaseConfig) *gorm.DB {
 		cfg.Charset,
 	)
 
+	// 生产环境使用 Warn 级别，开发环境使用 Info 级别
+	logLevel := logger.Info
+	if cfg.Host != "localhost" && cfg.Host != "127.0.0.1" {
+		logLevel = logger.Warn
+	}
+
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
 		log.Fatalf("failed to connect to mysql: %v", err)
@@ -86,6 +92,7 @@ func InitMySQL(cfg *config.DatabaseConfig) *gorm.DB {
 		&admin.IPBlacklist{},
 		&admin.SystemLog{},
 		&admin.PageView{},
+		&admin.AnnouncementRead{},
 	); err != nil {
 		log.Fatalf("failed to auto migrate: %v", err)
 	}
@@ -95,13 +102,13 @@ func InitMySQL(cfg *config.DatabaseConfig) *gorm.DB {
 	db.Model(&admin.PointsRule{}).Count(&count)
 	if count == 0 {
 		defaultRules := []admin.PointsRule{
-			{Action: "register", Points: 100, Desc: "用户注册"},
-			{Action: "publish_article", Points: 50, Desc: "发布文章"},
-			{Action: "publish_prompt", Points: 30, Desc: "发布 Prompt"},
-			{Action: "like", Points: 5, Desc: "点赞"},
-			{Action: "comment", Points: 10, Desc: "评论"},
-			{Action: "follow", Points: 20, Desc: "关注"},
-			{Action: "daily_login", Points: 5, Desc: "每日登录"},
+			{Action: "register", Points: 100, Desc: "用户注册", LimitType: "once", Status: 1},
+			{Action: "publish_article", Points: 50, Desc: "发布文章", LimitType: "daily", Status: 1},
+			{Action: "publish_prompt", Points: 30, Desc: "发布 Prompt", LimitType: "daily", Status: 1},
+			{Action: "like", Points: 5, Desc: "点赞", LimitType: "daily", Status: 1},
+			{Action: "comment", Points: 10, Desc: "评论", LimitType: "daily", Status: 1},
+			{Action: "follow", Points: 20, Desc: "关注", LimitType: "daily", Status: 1},
+			{Action: "daily_login", Points: 5, Desc: "每日登录", LimitType: "daily", Status: 1},
 		}
 		db.Create(&defaultRules)
 	}

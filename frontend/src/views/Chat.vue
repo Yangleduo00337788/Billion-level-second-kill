@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useMessage } from 'naive-ui'
 
@@ -162,7 +162,11 @@ async function sendMessage() {
   inputMessage.value = ''
 
   if (!currentSession.value) newSession()
-  const session = currentSession.value!
+  // 直接使用响应式数组访问，确保 Vue 能追踪变化
+  const sessionIndex = activeSession.value
+  const session = sessions.value[sessionIndex]
+  if (!session) return
+
   if (session.messages.length === 0) {
     session.title = content.slice(0, 30) + (content.length > 30 ? '...' : '')
   }
@@ -192,6 +196,23 @@ async function sendMessage() {
     const decoder = new TextDecoder()
     let buffer = ''
 
+    let updateTimer: number | null = null
+    let pendingContent = ''
+
+    const flushContent = () => {
+      if (pendingContent) {
+        const msgIndex = session.messages.length - 1
+        const lastMsg = session.messages[msgIndex]
+        if (lastMsg?.role === 'assistant') {
+          session.messages[msgIndex] = {
+            ...lastMsg,
+            content: lastMsg.content + pendingContent
+          }
+          pendingContent = ''
+        }
+      }
+    }
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -203,24 +224,35 @@ async function sendMessage() {
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = line.slice(6)
-          if (data === '[DONE]') break
+          if (data === '[DONE]') {
+            flushContent()
+            break
+          }
           try {
             const parsed = JSON.parse(data)
             if (parsed.content) {
-              const lastMsg = session.messages[session.messages.length - 1]
-              if (lastMsg?.role === 'assistant') {
-                lastMsg.content += parsed.content
+              pendingContent += parsed.content
+              // 每 50ms 更新一次 UI，减少渲染频率
+              if (!updateTimer) {
+                updateTimer = window.setTimeout(() => {
+                  flushContent()
+                  updateTimer = null
+                }, 50)
               }
             }
           } catch {}
         }
       }
     }
+    // 确保最后的内容被刷新
+    if (updateTimer) clearTimeout(updateTimer)
+    flushContent()
   } catch (e: any) {
     message.error(e.message || 'AI 响应失败')
-    const lastMsg = session.messages[session.messages.length - 1]
+    const msgIndex = session.messages.length - 1
+    const lastMsg = session.messages[msgIndex]
     if (lastMsg?.role === 'assistant' && !lastMsg.content) {
-      lastMsg.content = '抱歉，我遇到了问题，请稍后重试。'
+      session.messages[msgIndex] = { ...lastMsg, content: '抱歉，我遇到了问题，请稍后重试。' }
     }
   } finally {
     isStreaming.value = false

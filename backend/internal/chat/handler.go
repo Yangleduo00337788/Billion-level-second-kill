@@ -2,6 +2,7 @@ package chat
 
 import (
 	"net/http"
+	"strings"
 
 	"inference-engine/internal/middleware"
 	"inference-engine/internal/pkg/jwt"
@@ -15,7 +16,23 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		// 校验 Origin，防止跨站 WebSocket 劫持
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return false
+		}
+		// 允许本地开发和生产环境
+		allowedOrigins := []string{
+			"http://localhost", "http://localhost:5173", "http://localhost:3000",
+			"http://127.0.0.1", "http://127.0.0.1:5173", "http://127.0.0.1:3000",
+		}
+		for _, allowed := range allowedOrigins {
+			if strings.HasPrefix(origin, allowed) {
+				return true
+			}
+		}
+		// 生产环境应该配置实际域名
+		return false
 	},
 }
 

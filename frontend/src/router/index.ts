@@ -13,6 +13,7 @@ import Chat from '@/views/Chat.vue'
 import ImChat from '@/views/ImChat.vue'
 import UserProfile from '@/views/UserProfile.vue'
 import SearchResults from '@/views/SearchResults.vue'
+import Notifications from '@/views/Notifications.vue'
 import AdminLayout from '@/views/admin/AdminLayout.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
 import AdminUsers from '@/views/admin/AdminUsers.vue'
@@ -64,6 +65,7 @@ const router = createRouter({
     { path: '/user/:id', name: 'UserProfile', component: UserProfile, meta: { title: '用户主页' } },
     { path: '/im', name: 'ImChat', component: ImChat, meta: { title: '即时通讯', requiresAuth: true } },
     { path: '/search', name: 'SearchResults', component: SearchResults, meta: { title: '搜索' } },
+    { path: '/notifications', name: 'Notifications', component: Notifications, meta: { title: '消息通知', requiresAuth: true } },
     {
       path: '/admin',
       component: AdminLayout,
@@ -112,7 +114,7 @@ router.beforeEach((to, _from) => {
     const userStore = useUserStore()
     if (!userStore.isAuthenticated) return { name: 'Login', query: { redirect: to.fullPath } }
   }
-  if (to.meta.guest && to.name === 'Login') {
+  if (to.meta.guest) {
     const userStore = useUserStore()
     if (userStore.isAuthenticated) return { name: 'Home' }
   }

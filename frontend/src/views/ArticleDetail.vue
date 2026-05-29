@@ -178,6 +178,8 @@ async function handleLike() {
     await post(`/articles/${article.value.id}/like`)
     article.value.liked = !article.value.liked
     article.value.like_count += article.value.liked ? 1 : -1
+    // 刷新用户信息（积分可能变化）
+    userStore.fetchProfile()
   } catch {}
 }
 
@@ -208,6 +210,8 @@ async function submitComment() {
     message.success('评论成功')
     fetchComments()
     if (article.value) article.value.comment_count++
+    // 刷新用户信息（积分可能变化）
+    userStore.fetchProfile()
   } catch { message.error('评论失败') }
   finally { submittingComment.value = false }
 }

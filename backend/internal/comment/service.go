@@ -10,6 +10,7 @@ import (
 	"inference-engine/internal/notify"
 	"inference-engine/internal/pkg/points"
 	"inference-engine/internal/pkg/sensitive"
+	"inference-engine/internal/user"
 
 	"gorm.io/gorm"
 )
@@ -17,6 +18,7 @@ import (
 type Service struct {
 	repo        *Repository
 	articleRepo *article.Repository
+	userRepo    *user.Repository
 	notifySvc   *notify.Service
 	auditLogSvc *admin.AuditLogService
 	filter      *sensitive.Filter
@@ -28,6 +30,7 @@ func NewService(repo *Repository, articleRepo *article.Repository, db *gorm.DB) 
 	return &Service{
 		repo:        repo,
 		articleRepo: articleRepo,
+		userRepo:    user.NewRepository(db),
 		notifySvc:   notify.NewService(db),
 		auditLogSvc: admin.NewAuditLogService(db),
 		filter:      sensitive.NewFilter(db),
@@ -44,7 +47,7 @@ type CreateCommentReq struct {
 func (s *Service) Create(userID, articleID uint, req *CreateCommentReq, ip string) (*Comment, error) {
 	art, err := s.articleRepo.FindByID(articleID)
 	if err != nil {
-		return nil, errors.New("article not found")
+		return nil, errors.New("文章不存在")
 	}
 
 	// Sensitive word check
@@ -68,11 +71,17 @@ func (s *Service) Create(userID, articleID uint, req *CreateCommentReq, ip strin
 
 	// Trigger notification to article author
 	if art.UserID != userID {
+		// 获取评论用户信息
+		actor, _ := s.userRepo.FindByID(userID)
+		actorName := "用户"
+		if actor != nil {
+			actorName = actor.Username
+		}
 		go s.notifySvc.Create(&notify.CreateNotifyReq{
 			UserID:   art.UserID,
 			ActorID:  userID,
 			Type:     "comment",
-			Content:  "评论了你的文章",
+			Content:  fmt.Sprintf("%s 评论了你的文章《%s》", actorName, art.Title),
 			TargetID: articleID,
 		})
 	}
@@ -91,11 +100,11 @@ func (s *Service) GetByArticleID(articleID uint, page, pageSize int) ([]Comment,
 func (s *Service) Delete(commentID, userID uint, ip string) error {
 	comment, err := s.repo.FindByID(commentID)
 	if err != nil {
-		return errors.New("comment not found")
+		return errors.New("评论不存在")
 	}
 
 	if comment.UserID != userID {
-		return errors.New("permission denied")
+		return errors.New("没有权限执行此操作")
 	}
 
 	if err := s.repo.Delete(commentID); err != nil {

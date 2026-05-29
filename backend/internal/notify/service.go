@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"log"
 	"time"
 
 	"gorm.io/gorm"
@@ -53,7 +54,14 @@ func (s *Service) Create(req *CreateNotifyReq) error {
 		IsRead:   false,
 	}
 
-	return s.db.Create(notify).Error
+	log.Printf("[Notify] Creating notification: userID=%d, type=%s, content=%s, isRead=%v", req.UserID, req.Type, req.Content, notify.IsRead)
+	err := s.db.Create(notify).Error
+	if err != nil {
+		log.Printf("[Notify] Failed to create notification: %v", err)
+		return err
+	}
+	log.Printf("[Notify] Notification created successfully: id=%d, isRead=%v", notify.ID, notify.IsRead)
+	return nil
 }
 
 func (s *Service) List(userID uint, page, pageSize int) ([]Notification, int64, error) {
@@ -82,5 +90,6 @@ func (s *Service) MarkAllAsRead(userID uint) error {
 func (s *Service) GetUnreadCount(userID uint) (int64, error) {
 	var count int64
 	err := s.db.Model(&Notification{}).Where("user_id = ? AND is_read = ?", userID, false).Count(&count).Error
+	log.Printf("[Notify] GetUnreadCount: userID=%d, count=%d, err=%v", userID, count, err)
 	return count, err
 }
