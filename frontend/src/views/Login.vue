@@ -49,12 +49,13 @@
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import type { FormInst } from 'naive-ui'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-const formRef = ref(null)
+const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
 const formData = reactive({
