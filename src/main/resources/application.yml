@@ -1,0 +1,129 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: user-system
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/user_system?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: root
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 3000ms
+      redisson:
+        file: classpath:redisson.yml
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      acks: 1
+      retries: 3
+      batch-size: 16384
+      linger-ms: 5
+      compression-type: snappy
+      max-in-flight-requests-per-connection: 1
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: latest
+      max-poll-records: 200
+    listener:
+      ack-mode: manual
+
+mybatis-flex:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.seckill.usersystem.entity;com.seckill.seckill.entity;com.seckill.im.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+jwt:
+  secret: user-system-secret-key-must-be-at-least-256-bits-long-for-hs256-algorithm
+  access-token-expiration: 7200
+  refresh-token-expiration: 604800
+
+user:
+  max-device-count: 5
+  login-lock-minutes: 30
+
+risk-control:
+  max-login-attempts: 5
+  attempt-window-minutes: 15
+  max-device-changes-per-hour: 3
+
+oauth:
+  wechat:
+    app-id: your-wechat-app-id
+    app-secret: your-wechat-app-secret
+    authorize-url: https://open.weixin.qq.com/connect/oauth2/authorize
+    token-url: https://api.weixin.qq.com/sns/oauth2/access_token
+    userinfo-url: https://api.weixin.qq.com/sns/userinfo
+
+logging:
+  level:
+    com.seckill.usersystem: debug
+    com.seckill.usersystem.mapper: debug
+    com.seckill.im: debug
+    com.seckill.seckill: debug
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+knife4j:
+  enable: true
+  setting:
+    language: zh-cn
+
+seckill:
+  rate-limit:
+    seckill-api-permits-per-second: 10000
+    user-permits-per-second: 5
+
+im:
+  netty:
+    port: 9999
+    boss-threads: 1
+    worker-threads: 8
+    so-backlog: 1024
+    so-keepalive: true
+    tcp-nodelay: true
+    so-sndbuf: 65536
+    so-rcvbuf: 65536
+    write-buffer-low-water-mark: 32768
+    write-buffer-high-water-mark: 65536
+    max-content-length: 65536
+    max-frame-size: 65536
+    reader-idle-time-seconds: 120
+    writer-idle-time-seconds: 60
+    all-idle-time-seconds: 0
+  snowflake:
+    worker-id: 1
+    datacenter-id: 1

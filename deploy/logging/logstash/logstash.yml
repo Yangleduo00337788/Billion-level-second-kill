@@ -1,0 +1,19 @@
+http.host: "0.0.0.0"
+http.port: 9600
+
+path.config: /usr/share/logstash/pipeline
+path.logs: /usr/share/logstash/logs
+
+pipeline.workers: 4
+pipeline.batch.size: 500
+pipeline.batch.delay: 50
+
+queue.type: persisted
+queue.max_bytes: 4gb
+queue.checkpoint.writes: 1024
+
+config.reload.automatic: true
+config.reload.interval: 30s
+
+xpack.monitoring.enabled: true
+xpack.monitoring.elasticsearch.hosts: ["http://elasticsearch-service.logging.svc.cluster.local:9200"]

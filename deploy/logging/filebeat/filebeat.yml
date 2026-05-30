@@ -1,0 +1,67 @@
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /app/logs/*.log
+    fields:
+      app: seckill-app
+      type: application
+    fields_under_root: true
+    multiline:
+      pattern: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+      negate: true
+      match: after
+      max_lines: 500
+    exclude_lines: ["^\s*$"]
+    tail_files: true
+
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/access.log
+    fields:
+      app: nginx
+      type: access-log
+    fields_under_root: true
+
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/error.log
+    fields:
+      app: nginx
+      type: error-log
+    fields_under_root: true
+    multiline:
+      pattern: '^\d{4}/\d{2}/\d{2}'
+      negate: true
+      match: after
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_kubernetes_metadata:
+      host: ${NODE_NAME}
+      matchers:
+        - logs_path:
+            logs_path: "/var/log/containers/"
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  - drop_fields:
+      fields: ["agent.ephemeral_id", "agent.id", "host.name"]
+
+output.logstash:
+  hosts: ["logstash-service.logging.svc.cluster.local:5044"]
+  loadbalance: true
+  worker: 2
+  compression_level: 3
+  bulk_max_size: 2048
+  pipelining: 2
+
+logging.level: warning
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644

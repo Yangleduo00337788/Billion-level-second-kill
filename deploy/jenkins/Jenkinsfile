@@ -1,0 +1,385 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: jenkins-sa
+  containers:
+    - name: maven
+      image: maven:3.9-eclipse-temurin-17-alpine
+      command: ["sleep"]
+      args: ["infinity"]
+      resources:
+        requests:
+          cpu: "2"
+          memory: "2Gi"
+        limits:
+          cpu: "4"
+          memory: "4Gi"
+      volumeMounts:
+        - name: maven-cache
+          mountPath: /root/.m2
+    - name: docker
+      image: docker:24-dind
+      securityContext:
+        privileged: true
+      resources:
+        requests:
+          cpu: "1"
+          memory: "1Gi"
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run
+    - name: kubectl
+      image: bitnami/kubectl:1.29
+      command: ["sleep"]
+      args: ["infinity"]
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+    - name: sonar-scanner
+      image: sonarsource/sonar-scanner-cli:5.0
+      command: ["sleep"]
+      args: ["infinity"]
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
+  volumes:
+    - name: maven-cache
+      persistentVolumeClaim:
+        claimName: maven-cache-pvc
+    - name: docker-sock
+      emptyDir: {}
+'''
+        }
+    }
+
+    environment {
+        APP_NAME = 'seckill-app'
+        DOCKER_REGISTRY = 'harbor.seckill.com'
+        DOCKER_IMAGE = "${DOCKER_REGISTRY}/${APP_NAME}"
+        K8S_NAMESPACE = 'seckill'
+        SONAR_HOST = 'http://sonarqube:9000'
+        SONAR_TOKEN = credentials('sonar-token')
+        DOCKER_HUB_CREDS = credentials('harbor-credentials')
+        APP_VERSION = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
+        HELM_CHART_PATH = 'deploy/helm/seckill'
+    }
+
+    options {
+        timeout(time: 60, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))
+        disableConcurrentBuilds(abortPrevious: true)
+        ansiColor('xterm')
+        timestamps()
+    }
+
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['dev', 'staging', 'prod'], description: 'Deployment environment')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip unit tests')
+        booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarQube analysis')
+        booleanParam(name: 'CANARY_DEPLOY', defaultValue: false, description: 'Canary deployment mode')
+        string(name: 'CANARY_WEIGHT', defaultValue: '10', description: 'Canary deployment weight (%)')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    currentBuild.displayName = "#${BUILD_NUMBER} - ${DEPLOY_ENV} - ${APP_VERSION}"
+                }
+                checkout scm
+                sh '''
+                    echo "Branch: ${GIT_BRANCH}"
+                    echo "Commit: ${GIT_COMMIT}"
+                    echo "Version: ${APP_VERSION}"
+                '''
+            }
+        }
+
+        stage('Dependency Scan') {
+            when {
+                expression { params.DEPLOY_ENV == 'prod' }
+            }
+            steps {
+                container('maven') {
+                    sh '''
+                        mvn dependency-check:check \
+                            -DnvdApiKey=${NVD_API_KEY} \
+                            -DfailBuildOnCVSS=7 \
+                            || true
+                    '''
+                }
+            }
+        }
+
+        stage('Static Code Analysis') {
+            when {
+                expression { !params.SKIP_SONAR }
+            }
+            parallel {
+                stage('SonarQube') {
+                    steps {
+                        container('sonar-scanner') {
+                            sh """
+                                sonar-scanner \
+                                    -Dsonar.projectKey=${APP_NAME} \
+                                    -Dsonar.sources=src/main/java \
+                                    -Dsonar.java.binaries=target/classes \
+                                    -Dsonar.host.url=${SONAR_HOST} \
+                                    -Dsonar.login=${SONAR_TOKEN} \
+                                    -Dsonar.projectVersion=${APP_VERSION}
+                            """
+                        }
+                    }
+                }
+                stage('SpotBugs') {
+                    steps {
+                        container('maven') {
+                            sh 'mvn spotbugs:check -Dspotbugs.failOnError=true || true'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Unit Test') {
+            parallel {
+                stage('Maven Build') {
+                    steps {
+                        container('maven') {
+                            sh """
+                                mvn clean compile \
+                                    -DskipTests \
+                                    -Pprod \
+                                    -U
+                            """
+                        }
+                    }
+                }
+                stage('Unit Tests') {
+                    when {
+                        expression { !params.SKIP_TESTS }
+                    }
+                    steps {
+                        container('maven') {
+                            sh """
+                                mvn test \
+                                    -Pprod \
+                                    -Dmaven.test.failure.ignore=false
+                            """
+                        }
+                        post {
+                            always {
+                                junit 'target/surefire-reports/*.xml'
+                                jacoco()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Integration Tests') {
+            when {
+                expression { params.DEPLOY_ENV == 'staging' || params.DEPLOY_ENV == 'prod' }
+            }
+            steps {
+                container('maven') {
+                    sh '''
+                        mvn verify \
+                            -Pintegration-test \
+                            -Dtest.environment=${DEPLOY_ENV}
+                    '''
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                container('maven') {
+                    sh """
+                        mvn package \
+                            -DskipTests \
+                            -Pprod \
+                            -Drevision=${APP_VERSION}
+                    """
+                }
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                container('docker') {
+                    script {
+                        def dockerImage = docker.build(
+                            "${DOCKER_IMAGE}:${APP_VERSION}",
+                            "--build-arg APP_VERSION=${APP_VERSION} -f deploy/docker/Dockerfile ."
+                        )
+
+                        docker.withRegistry(
+                            "https://${DOCKER_REGISTRY}",
+                            'harbor-credentials'
+                        ) {
+                            dockerImage.push(APP_VERSION)
+                            dockerImage.push('latest')
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Image Security Scan') {
+            when {
+                expression { params.DEPLOY_ENV == 'prod' }
+            }
+            steps {
+                container('docker') {
+                    sh """
+                        trivy image \
+                            --severity HIGH,CRITICAL \
+                            --ignore-unfixed \
+                            --exit-code 1 \
+                            ${DOCKER_IMAGE}:${APP_VERSION} \
+                            || true
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to K8s') {
+            when {
+                expression { params.DEPLOY_ENV != 'prod' || currentBuild.result == null }
+            }
+            steps {
+                container('kubectl') {
+                    script {
+                        if (params.CANARY_DEPLOY) {
+                            stage('Canary Deploy') {
+                                sh """
+                                    helm upgrade --install ${APP_NAME}-canary ${HELM_CHART_PATH} \
+                                        --namespace ${K8S_NAMESPACE} \
+                                        --set image.tag=${APP_VERSION} \
+                                        --set deployment.canary.enabled=true \
+                                        --set deployment.canary.weight=${CANARY_WEIGHT} \
+                                        --set deployment.replicas=1 \
+                                        --wait --timeout 5m
+                                """
+                                input(
+                                    message: "Canary deployment ready. Continue to full rollout?",
+                                    ok: 'Proceed Full Rollout'
+                                )
+                            }
+                        }
+
+                        sh """
+                            helm upgrade --install ${APP_NAME} ${HELM_CHART_PATH} \\
+                                --namespace ${K8S_NAMESPACE} \\
+                                --set image.tag=${APP_VERSION} \\
+                                --set image.registry=${DOCKER_REGISTRY} \\
+                                --set deployment.env=${DEPLOY_ENV} \\
+                                --set deployment.replicas=3 \\
+                                --wait \\
+                                --timeout 10m
+
+                            kubectl annotate deployment ${APP_NAME} \\
+                                -n ${K8S_NAMESPACE} \\
+                                kubernetes.io/change-cause="Deployed version ${APP_VERSION}" \\
+                                --overwrite
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                container('kubectl') {
+                    script {
+                        def svcIp = sh(
+                            script: "kubectl get svc ${APP_NAME}-service -n ${K8S_NAMESPACE} -o jsonpath='{.spec.clusterIP}'",
+                            returnStdout: true
+                        ).trim()
+
+                        sh """
+                            echo "Running smoke tests..."
+                            curl -f -s -o /dev/null -w "%{http_code}" \
+                                http://${svcIp}:8080/actuator/health/liveness
+                            curl -f -s -o /dev/null -w "%{http_code}" \
+                                http://${svcIp}:8080/actuator/health/readiness
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Post-Deploy Verification') {
+            when {
+                expression { params.DEPLOY_ENV == 'prod' }
+            }
+            steps {
+                container('kubectl') {
+                    sh '''
+                        echo "=== Pod Status ==="
+                        kubectl get pods -n ${K8S_NAMESPACE} -l app=${APP_NAME}
+
+                        echo "=== Deployment Status ==="
+                        kubectl rollout status deployment/${APP_NAME} -n ${K8S_NAMESPACE} --timeout=5m
+
+                        echo "=== HPA Status ==="
+                        kubectl get hpa -n ${K8S_NAMESPACE}
+
+                        echo "=== Top Pods ==="
+                        kubectl top pods -n ${K8S_NAMESPACE} -l app=${APP_NAME}
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def slackColor = '#36a64f'
+                slackSend(
+                    color: slackColor,
+                    message: "*SUCCESS:* ${APP_NAME} ${APP_VERSION} deployed to *${DEPLOY_ENV}* (<${BUILD_URL}|#${BUILD_NUMBER}>)"
+                )
+                if (params.DEPLOY_ENV == 'prod') {
+                    emailext(
+                        subject: "[PROD] ${APP_NAME} ${APP_VERSION} Deployed Successfully",
+                        body: "Deployment #${BUILD_NUMBER} succeeded.\nVersion: ${APP_VERSION}\nEnvironment: ${DEPLOY_ENV}",
+                        to: 'devops-team@seckill.com'
+                    )
+                }
+            }
+        }
+        failure {
+            script {
+                def slackColor = '#ff0000'
+                slackSend(
+                    color: slackColor,
+                    message: "*FAILED:* ${APP_NAME} ${APP_VERSION} deployment to *${DEPLOY_ENV}* failed (<${BUILD_URL}|#${BUILD_NUMBER}>)"
+                )
+
+                if (params.DEPLOY_ENV == 'prod') {
+                    container('kubectl') {
+                        sh """
+                            kubectl rollout undo deployment/${APP_NAME} -n ${K8S_NAMESPACE}
+                            echo "!!! ROLLBACK EXECUTED !!!"
+                        """
+                    }
+                }
+            }
+        }
+        always {
+            cleanWs()
+            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true, onlyIfSuccessful: true
+            archiveArtifacts artifacts: 'target/surefire-reports/*.xml', fingerprint: true, allowEmptyArchive: true
+        }
+    }
+}

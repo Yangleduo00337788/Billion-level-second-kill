@@ -1,0 +1,307 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seckill-app-config
+  namespace: seckill
+data:
+  application-prod.yml: |
+    server:
+      port: 8080
+    
+    spring:
+      application:
+        name: user-system
+      data:
+        redis:
+          host: redis-service.seckill.svc.cluster.local
+          port: 6379
+          timeout: 5000ms
+          lettuce:
+            pool:
+              max-active: 50
+              max-idle: 20
+              min-idle: 10
+              max-wait: 3000ms
+      kafka:
+        bootstrap-servers: kafka-service.seckill.svc.cluster.local:9092
+        producer:
+          key-serializer: org.apache.kafka.common.serialization.StringSerializer
+          value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+          acks: 1
+          retries: 3
+          batch-size: 16384
+          linger-ms: 5
+          compression-type: snappy
+          max-in-flight-requests-per-connection: 1
+        consumer:
+          key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+          value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+          enable-auto-commit: false
+          auto-offset-reset: latest
+          max-poll-records: 200
+        listener:
+          ack-mode: manual
+    
+    mybatis-flex:
+      configuration:
+        map-underscore-to-camel-case: true
+        log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+    
+    jwt:
+      access-token-expiration: 7200
+      refresh-token-expiration: 604800
+    
+    user:
+      max-device-count: 5
+      login-lock-minutes: 30
+    
+    risk-control:
+      max-login-attempts: 5
+      attempt-window-minutes: 15
+      max-device-changes-per-hour: 3
+    
+    seckill:
+      rate-limit:
+        seckill-api-permits-per-second: 10000
+        user-permits-per-second: 5
+    
+    im:
+      netty:
+        port: 9999
+        boss-threads: 1
+        worker-threads: 8
+        so-backlog: 1024
+        so-keepalive: true
+        tcp-nodelay: true
+        so-sndbuf: 65536
+        so-rcvbuf: 65536
+        max-content-length: 65536
+        reader-idle-time-seconds: 120
+        writer-idle-time-seconds: 60
+      snowflake:
+        worker-id: 1
+        datacenter-id: 1
+    
+    logging:
+      level:
+        com.seckill: info
+      pattern:
+        console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId}] %-5level %logger{50} - %msg%n"
+      file:
+        name: /app/logs/app.log
+        max-size: 200MB
+        max-history: 30
+    
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: health,info,metrics,prometheus
+      metrics:
+        export:
+          prometheus:
+            enabled: true
+        tags:
+          application: ${spring.application.name}
+          instance: ${POD_NAME:unknown}
+      endpoint:
+        health:
+          show-details: always
+          probes:
+            enabled: true
+        metrics:
+          enabled: true
+        prometheus:
+          enabled: true
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: seckill
+data:
+  nginx.conf: |
+    worker_processes auto;
+    worker_rlimit_nofile 65535;
+    
+    events {
+        use epoll;
+        worker_connections 65535;
+        multi_accept on;
+    }
+    
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        
+        log_format json_combined escape=json '{'
+            '"time_local":"$time_local",'
+            '"remote_addr":"$remote_addr",'
+            '"remote_user":"$remote_user",'
+            '"request":"$request",'
+            '"status":$status,'
+            '"body_bytes_sent":$body_bytes_sent,'
+            '"request_time":$request_time,'
+            '"http_referer":"$http_referer",'
+            '"http_user_agent":"$http_user_agent",'
+            '"http_x_forwarded_for":"$http_x_forwarded_for",'
+            '"upstream_addr":"$upstream_addr",'
+            '"upstream_status":$upstream_status,'
+            '"upstream_response_time":$upstream_response_time'
+        '}';
+        
+        access_log /var/log/nginx/access.log json_combined buffer=64k flush=5s;
+        error_log /var/log/nginx/error.log warn;
+        
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        keepalive_requests 10000;
+        
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css text/xml application/json application/javascript
+                   application/xml application/xml+rss text/javascript;
+        gzip_min_length 1000;
+        
+        upstream seckill_backend {
+            least_conn;
+            server seckill-app-service.seckill.svc.cluster.local:8080 max_fails=3 fail_timeout=30s;
+            keepalive 512;
+            keepalive_requests 10000;
+            keepalive_timeout 60s;
+        }
+        
+        limit_req_zone $binary_remote_addr zone=seckill_api:10m rate=100r/s;
+        limit_conn_zone $binary_remote_addr zone=conn_per_ip:10m;
+        
+        proxy_cache_path /var/cache/nginx/seckill levels=1:2
+            keys_zone=seckill_cache:100m max_size=1g inactive=5m use_temp_path=off;
+        
+        server {
+            listen 80;
+            server_name _;
+            
+            return 301 https://$host$request_uri;
+        }
+        
+        server {
+            listen 443 ssl http2;
+            server_name api.seckill.com;
+            
+            ssl_certificate /etc/nginx/ssl/server.crt;
+            ssl_certificate_key /etc/nginx/ssl/server.key;
+            ssl_session_cache shared:SSL:10m;
+            ssl_session_timeout 10m;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+            ssl_prefer_server_ciphers off;
+            
+            client_max_body_size 10m;
+            client_body_buffer_size 128k;
+            
+            proxy_buffering on;
+            proxy_buffer_size 8k;
+            proxy_buffers 32 8k;
+            proxy_busy_buffers_size 16k;
+            
+            location /health {
+                return 200 'OK';
+                add_header Content-Type text/plain;
+            }
+            
+            location /actuator {
+                deny all;
+            }
+            
+            location /api/v1/seckill/execute {
+                limit_req zone=seckill_api burst=200 nodelay;
+                limit_conn conn_per_ip 10;
+                
+                proxy_pass http://seckill_backend;
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                
+                proxy_connect_timeout 5s;
+                proxy_send_timeout 10s;
+                proxy_read_timeout 10s;
+                
+                proxy_cache seckill_cache;
+                proxy_cache_key "$scheme$request_method$host$request_uri$http_authorization";
+                proxy_cache_valid 200 1s;
+                proxy_cache_bypass $http_cache_control;
+            }
+            
+            location /api/v1/ {
+                proxy_pass http://seckill_backend;
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                
+                proxy_connect_timeout 5s;
+                proxy_send_timeout 30s;
+                proxy_read_timeout 30s;
+            }
+            
+            location /ws/ {
+                proxy_pass http://seckill_backend;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "Upgrade";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_read_timeout 86400s;
+            }
+            
+            location /swagger-ui.html {
+                proxy_pass http://seckill_backend;
+                proxy_set_header Host $host;
+            }
+            
+            location /v3/api-docs {
+                proxy_pass http://seckill_backend;
+                proxy_set_header Host $host;
+            }
+        }
+    }
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: seckill
+data:
+  redis.conf: |
+    maxmemory 4gb
+    maxmemory-policy allkeys-lru
+    save 900 1
+    save 300 10
+    save 60 10000
+    dbfilename dump.rdb
+    dir /data
+    appendonly yes
+    appendfsync everysec
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    tcp-backlog 511
+    timeout 300
+    tcp-keepalive 300
+    maxclients 20000
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+    latency-monitor-threshold 100

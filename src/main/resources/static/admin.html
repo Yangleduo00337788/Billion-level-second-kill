@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Billion SecKill — 管理控制台</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg-root: #0a0c10;
+    --bg-surface: #13161d;
+    --bg-card: rgba(22,27,38,0.72);
+    --bg-card-hover: rgba(30,37,50,0.85);
+    --bg-glass: rgba(255,255,255,0.03);
+    --border: rgba(255,255,255,0.06);
+    --border-active: rgba(255,255,255,0.12);
+    --text-primary: #e7e9ed;
+    --text-secondary: #8b93a5;
+    --text-muted: #595f70;
+    --accent-user: #4dabf7;
+    --accent-user-dim: rgba(77,171,247,0.14);
+    --accent-user-glow: rgba(77,171,247,0.25);
+    --accent-seckill: #f59f00;
+    --accent-seckill-dim: rgba(245,159,0,0.14);
+    --accent-seckill-glow: rgba(245,159,0,0.25);
+    --accent-im: #20c997;
+    --accent-im-dim: rgba(32,201,151,0.14);
+    --accent-im-glow: rgba(32,201,151,0.25);
+    --red: #ff6b6b;
+    --green: #51cf66;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.4), 0 4px 24px rgba(0,0,0,0.3);
+    --shadow-elevated: 0 8px 40px rgba(0,0,0,0.5);
+    --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: var(--bg-root);
+    color: var(--text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { display:flex; min-height:100vh; }
+  .sidebar {
+    width: 240px; flex-shrink:0; background:var(--bg-surface);
+    border-right: 1px solid var(--border); display:flex; flex-direction:column;
+    position:fixed; top:0; left:0; bottom:0; z-index:100;
+  }
+  .sidebar-brand {
+    padding:24px 20px; display:flex; align-items:center; gap:12px;
+    border-bottom:1px solid var(--border);
+  }
+  .sidebar-brand .logo {
+    width:36px; height:36px; border-radius:var(--radius-sm);
+    background: linear-gradient(135deg, var(--accent-user), var(--accent-seckill));
+    display:flex; align-items:center; justify-content:center; font-weight:800;
+    font-size:16px; color:#fff;
+  }
+  .sidebar-brand h1 { font-size:15px; font-weight:700; letter-spacing:-0.3px; }
+  .sidebar-nav { flex:1; padding:16px 12px; display:flex; flex-direction:column; gap:4px; }
+  .nav-item {
+    display:flex; align-items:center; gap:12px; padding:10px 14px;
+    border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition);
+    color:var(--text-secondary); font-size:13.5px; font-weight:500;
+    border:1px solid transparent; position:relative;
+  }
+  .nav-item:hover { background:var(--bg-glass); color:var(--text-primary); }
+  .nav-item.active { background:var(--bg-glass); color:var(--text-primary); border-color:var(--border-active); }
+  .nav-item .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .nav-item.user .dot { background:var(--accent-user); box-shadow:0 0 8px var(--accent-user-glow); }
+  .nav-item.seckill .dot { background:var(--accent-seckill); box-shadow:0 0 8px var(--accent-seckill-glow); }
+  .nav-item.im .dot { background:var(--accent-im); box-shadow:0 0 8px var(--accent-im-glow); }
+  .nav-item.active .dot { box-shadow:0 0 14px; }
+  .sidebar-footer {
+    padding:16px; border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+  }
+  .sidebar-footer .avatar {
+    width:32px; height:32px; border-radius:50%; background:var(--accent-user-dim);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px;
+    color:var(--accent-user);
+  }
+  .sidebar-footer .info { font-size:12px; }
+  .sidebar-footer .info .name { color:var(--text-primary); font-weight:600; }
+  .sidebar-footer .info .role { color:var(--text-muted); }
+  .main {
+    margin-left:240px; flex:1; padding:32px 36px; display:flex; flex-direction:column; gap:28px;
+  }
+  .module-header { display:flex; align-items:center; justify-content:space-between; }
+  .module-header h2 { font-size:26px; font-weight:800; letter-spacing:-0.5px; }
+  .module-header .badge {
+    padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
+    letter-spacing:0.5px;
+  }
+  .user-badge { background:var(--accent-user-dim); color:var(--accent-user); }
+  .seckill-badge { background:var(--accent-seckill-dim); color:var(--accent-seckill); }
+  .im-badge { background:var(--accent-im-dim); color:var(--accent-im); }
+  .stats-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; }
+  .stat-card {
+    background:var(--bg-card); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:20px 24px; transition:var(--transition); cursor:default;
+  }
+  .stat-card:hover {
+    background:var(--bg-card-hover); border-color:var(--border-active);
+    transform:translateY(-2px); box-shadow:var(--shadow-elevated);
+  }
+  .stat-card .stat-label { font-size:12px; color:var(--text-muted); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
+  .stat-card .stat-value { font-size:32px; font-weight:800; margin-top:6px; font-family:'DM Mono',monospace; }
+  .stat-card .stat-sub { font-size:11px; color:var(--text-secondary); margin-top:4px; }
+  .stat-card.user-accent .stat-value { color:var(--accent-user); }
+  .stat-card.seckill-accent .stat-value { color:var(--accent-seckill); }
+  .stat-card.im-accent .stat-value { color:var(--accent-im); }
+  .panel {
+    background:var(--bg-card); backdrop-filter:blur(16px);
+    border:1px solid var(--border); border-radius:var(--radius-lg);
+    overflow:hidden;
+  }
+  .panel-header {
+    padding:16px 24px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .panel-header h3 {
+    font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px;
+  }
+  .panel-body { padding:0; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th {
+    padding:12px 20px; text-align:left; font-weight:600; font-size:11px;
+    color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;
+    background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border);
+  }
+  tbody td {
+    padding:12px 20px; border-bottom:1px solid var(--border); color:var(--text-secondary);
+  }
+  tbody tr:hover td { background:var(--bg-glass); color:var(--text-primary); }
+  .tag {
+    display:inline-block; padding:2px 10px; border-radius:12px;
+    font-size:11px; font-weight:600;
+  }
+  .tag-active { background:rgba(81,207,102,0.12); color:var(--green); }
+  .tag-inactive { background:rgba(255,107,107,0.12); color:var(--red); }
+  .tag-warn { background:var(--accent-seckill-dim); color:var(--accent-seckill); }
+  .btn {
+    padding:8px 16px; border-radius:var(--radius-sm); font-size:12.5px; font-weight:600;
+    cursor:pointer; border:1px solid var(--border); background:var(--bg-glass);
+    color:var(--text-primary); transition:var(--transition);
+    font-family: inherit; display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn:hover { background:var(--bg-card-hover); border-color:var(--border-active); }
+  .btn-primary { background:var(--accent-user-dim); border-color:var(--accent-user-dim); color:var(--accent-user); }
+  .btn-primary:hover { background:rgba(77,171,247,0.22); }
+  .btn-danger { background:rgba(255,107,107,0.1); border-color:rgba(255,107,107,0.15); color:var(--red); }
+  .btn-danger:hover { background:rgba(255,107,107,0.18); }
+  .btn-sm { padding:4px 10px; font-size:11px; border-radius:6px; }
+  .module-panel { display:none; }
+  .module-panel.active { display:flex; flex-direction:column; gap:28px; }
+  .empty-state {
+    text-align:center; padding:48px 24px; color:var(--text-muted);
+  }
+  .empty-state .icon { width:44px; height:44px; margin:0 auto 12px; opacity:0.3; display:block; }
+  .empty-state p { font-size:13px; }
+  .pulse { animation:pulse 2s infinite; }
+  .pulse svg { width:8px; height:8px; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+  .icon { width:18px; height:18px; flex-shrink:0; }
+  .icon-sm { width:14px; height:14px; }
+  .panel-icon { width:20px; height:20px; flex-shrink:0; }
+  .nav-item .nav-icon { width:20px; height:20px; flex-shrink:0; opacity:0.55; }
+  .nav-item:hover .nav-icon, .nav-item.active .nav-icon { opacity:1; }
+  .user-section .nav-icon, .user-section .panel-icon { color:var(--accent-user); }
+  .seckill-section .nav-icon, .seckill-section .panel-icon { color:var(--accent-seckill); }
+  .im-section .nav-icon, .im-section .panel-icon { color:var(--accent-im); }
+  .grain-overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index:999; opacity:0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .nav-section-title {
+    font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;
+    letter-spacing:1.5px; padding:16px 14px 6px;
+  }
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+  </symbol>
+  <symbol id="icon-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+  </symbol>
+  <symbol id="icon-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+  </symbol>
+  <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </symbol>
+  <symbol id="icon-smartphone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+  </symbol>
+  <symbol id="icon-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+  </symbol>
+  <symbol id="icon-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  </symbol>
+  <symbol id="icon-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/>
+  </symbol>
+  <symbol id="icon-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+  </symbol>
+  <symbol id="icon-message" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+  </symbol>
+  <symbol id="icon-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+  </symbol>
+  <symbol id="icon-group" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="7" r="2"/><path d="M3 21v-2c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v2"/><circle cx="17" cy="10" r="2"/><path d="M15 19v-1c0-1.66.84-3.13 2.12-3.95"/>
+  </symbol>
+  <symbol id="icon-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+  </symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </symbol>
+  <symbol id="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </symbol>
+  <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+  </symbol>
+  <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </symbol>
+  <symbol id="icon-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+  </symbol>
+  <symbol id="icon-circle" viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="12" cy="12" r="10"/>
+  </symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">BS</div>
+      <h1>Billion SecKill</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">核心模块</div>
+      <div class="nav-item user active" data-module="user">
+        <div class="dot"></div> 用户系统
+      </div>
+      <div class="nav-item seckill" data-module="seckill">
+        <div class="dot"></div> 秒杀引擎
+      </div>
+      <div class="nav-item im" data-module="im">
+        <div class="dot"></div> 即时通讯
+      </div>
+      <div class="nav-section-title">系统</div>
+      <div class="nav-item" data-module="monitor" style="opacity:0.4;pointer-events:none;">
+        <div class="dot" style="background:#868e96;"></div> 系统监控（即将上线）
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="avatar">A</div>
+      <div class="info">
+        <div class="name">admin</div>
+        <div class="role">超级管理员</div>
+      </div>
+    </div>
+  </aside>
+  <main class="main">
+
+    <!-- ==================== MODULE 1: USER SYSTEM ==================== -->
+    <div class="module-panel active user-section" id="module-user">
+      <div class="module-header">
+        <div>
+          <h2>用户系统</h2>
+          <span style="color:var(--text-muted);font-size:13px;">用户 · 角色 · 权限 · 风控 · 设备 · 黑名单</span>
+        </div>
+        <span class="badge user-badge">USER SYSTEM</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card user-accent"><div class="stat-label">注册用户</div><div class="stat-value" id="user-count">2</div><div class="stat-sub">↑ 0 本周新增</div></div>
+        <div class="stat-card user-accent"><div class="stat-label">活跃会话</div><div class="stat-value" id="session-count">0</div><div class="stat-sub">实时在线用户</div></div>
+        <div class="stat-card user-accent"><div class="stat-label">角色数量</div><div class="stat-value" id="role-count">2</div><div class="stat-sub">ROLE_ADMIN / ROLE_USER</div></div>
+        <div class="stat-card user-accent"><div class="stat-label">风控拦截</div><div class="stat-value" id="risk-count" style="color:var(--red);">0</div><div class="stat-sub">今日高风险操作</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-users"/></svg>用户管理</h3>
+          <button class="btn btn-primary btn-sm"><svg class="icon-sm"><use href="#icon-plus"/></svg>新增用户</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>手机号</th><th>状态</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>admin</td><td>admin@seckill.com</td><td>13800000001</td><td><span class="tag tag-active">启用</span></td><td>ROLE_ADMIN</td><td>2026-05-01 10:00:00</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button> <button class="btn btn-sm btn-danger"><svg class="icon-sm"><use href="#icon-x"/></svg>禁用</button></td></tr>
+              <tr><td>2</td><td>test</td><td>test@seckill.com</td><td>13800000002</td><td><span class="tag tag-active">启用</span></td><td>ROLE_USER</td><td>2026-05-10 14:30:00</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button> <button class="btn btn-sm btn-danger"><svg class="icon-sm"><use href="#icon-x"/></svg>禁用</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-key"/></svg>角色管理</h3>
+          <button class="btn btn-primary btn-sm"><svg class="icon-sm"><use href="#icon-plus"/></svg>新增角色</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>角色编码</th><th>角色名称</th><th>权限数量</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>ROLE_ADMIN</td><td>系统管理员</td><td>10</td><td><span class="tag tag-active">启用</span></td><td>2026-05-01</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-check"/></svg>权限配置</button> <button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>2</td><td>ROLE_USER</td><td>普通用户</td><td>4</td><td><span class="tag tag-active">启用</span></td><td>2026-05-01</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-check"/></svg>权限配置</button> <button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-clipboard"/></svg>权限列表</h3>
+          <button class="btn btn-primary btn-sm"><svg class="icon-sm"><use href="#icon-plus"/></svg>新增权限</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>权限编码</th><th>权限名称</th><th>类型</th><th>父级</th><th>HTTP方法</th><th>排序</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>system</td><td>系统管理</td><td><span class="tag tag-active">MENU</span></td><td>-</td><td>-</td><td>1</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>2</td><td>user</td><td>用户管理</td><td><span class="tag tag-active">MENU</span></td><td>-</td><td>-</td><td>2</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>3</td><td>system:role:list</td><td>角色列表</td><td><span class="tag tag-warn">BUTTON</span></td><td>系统管理</td><td>GET</td><td>1</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>4</td><td>system:role:add</td><td>新增角色</td><td><span class="tag tag-warn">BUTTON</span></td><td>系统管理</td><td>POST</td><td>2</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>5</td><td>system:role:update</td><td>修改角色</td><td><span class="tag tag-warn">BUTTON</span></td><td>系统管理</td><td>PUT</td><td>3</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>6</td><td>system:role:delete</td><td>删除角色</td><td><span class="tag tag-warn">BUTTON</span></td><td>系统管理</td><td>DELETE</td><td>4</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>7</td><td>user:list</td><td>用户列表</td><td><span class="tag tag-warn">BUTTON</span></td><td>用户管理</td><td>GET</td><td>1</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>8</td><td>user:add</td><td>新增用户</td><td><span class="tag tag-warn">BUTTON</span></td><td>用户管理</td><td>POST</td><td>2</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>9</td><td>user:update</td><td>修改用户</td><td><span class="tag tag-warn">BUTTON</span></td><td>用户管理</td><td>PUT</td><td>3</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+              <tr><td>10</td><td>user:delete</td><td>删除用户</td><td><span class="tag tag-warn">BUTTON</span></td><td>用户管理</td><td>DELETE</td><td>4</td><td><button class="btn btn-sm"><svg class="icon-sm"><use href="#icon-edit"/></svg>编辑</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-shield"/></svg>黑名单管理</h3>
+          <button class="btn btn-danger btn-sm"><svg class="icon-sm"><use href="#icon-plus"/></svg>添加黑名单</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>黑名单类型</th><th>目标值</th><th>封禁原因</th><th>封禁人</th><th>过期时间</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#icon-shield"/></svg><p>暂无黑名单记录</p><p style="font-size:11px;margin-top:4px;">系统运行正常，未被拦截的恶意请求</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-smartphone"/></svg>设备管理</h3>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>用户</th><th>设备ID</th><th>设备类型</th><th>操作系统</th><th>浏览器</th><th>IP地址</th><th>登录时间</th><th>受信</th></tr></thead>
+            <tbody>
+              <tr><td colspan="9"><div class="empty-state"><svg class="icon"><use href="#icon-smartphone"/></svg><p>暂无设备登录记录</p><p style="font-size:11px;margin-top:4px;">用户登录后将自动记录设备信息</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODULE 2: SECKILL ENGINE ==================== -->
+    <div class="module-panel seckill-section" id="module-seckill">
+      <div class="module-header">
+        <div>
+          <h2>秒杀引擎</h2>
+          <span style="color:var(--text-muted);font-size:13px;">商品 · 秒杀活动 · 库存 · 订单 · 限流</span>
+        </div>
+        <span class="badge seckill-badge">SECKILL ENGINE</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card seckill-accent"><div class="stat-label">商品总数</div><div class="stat-value">0</div><div class="stat-sub">可秒杀商品</div></div>
+        <div class="stat-card seckill-accent"><div class="stat-label">秒杀活动</div><div class="stat-value">0</div><div class="stat-sub">进行中 / 即将开始</div></div>
+        <div class="stat-card seckill-accent"><div class="stat-label">今日订单</div><div class="stat-value">0</div><div class="stat-sub">秒杀成交订单</div></div>
+        <div class="stat-card seckill-accent"><div class="stat-label">QPS限制</div><div class="stat-value">10K</div><div class="stat-sub">秒杀接口令牌桶上限</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-package"/></svg>商品管理</h3>
+          <button class="btn btn-sm" style="background:var(--accent-seckill-dim);border-color:var(--accent-seckill-dim);color:var(--accent-seckill);"><svg class="icon-sm"><use href="#icon-plus"/></svg>新增商品</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>商品名称</th><th>原价</th><th>图片</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td colspan="7"><div class="empty-state"><svg class="icon"><use href="#icon-package"/></svg><p>暂无商品数据</p><p style="font-size:11px;margin-top:4px;">请先创建商品，再进行秒杀活动配置</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-zap"/></svg>秒杀活动配置</h3>
+          <button class="btn btn-sm" style="background:var(--accent-seckill-dim);border-color:var(--accent-seckill-dim);color:var(--accent-seckill);"><svg class="icon-sm"><use href="#icon-plus"/></svg>新建秒杀</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>秒杀名称</th><th>商品</th><th>秒杀价</th><th>库存</th><th>开始时间</th><th>结束时间</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td colspan="9"><div class="empty-state"><svg class="icon"><use href="#icon-zap"/></svg><p>暂无秒杀活动</p><p style="font-size:11px;margin-top:4px;">定时任务将自动管理活动生命周期</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-receipt"/></svg>订单管理</h3>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>订单ID</th><th>用户ID</th><th>秒杀ID</th><th>商品名称</th><th>秒杀价</th><th>状态</th><th>下单时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#icon-receipt"/></svg><p>暂无秒杀订单</p><p style="font-size:11px;margin-top:4px;">秒杀活动开始后将产生订单数据</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-chart"/></svg>库存流水</h3>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>秒杀ID</th><th>商品</th><th>操作类型</th><th>变更量</th><th>变更后库存</th><th>Redis状态</th><th>时间</th></tr></thead>
+            <tbody>
+              <tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#icon-chart"/></svg><p>暂无流水记录</p><p style="font-size:11px;margin-top:4px;">库存变更后将自动记录审计流水</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODULE 3: IM SYSTEM ==================== -->
+    <div class="module-panel im-section" id="module-im">
+      <div class="module-header">
+        <div>
+          <h2>即时通讯</h2>
+          <span style="color:var(--text-muted);font-size:13px;">会话 · 消息 · 群组 · 在线状态 · 离线推送</span>
+        </div>
+        <span class="badge im-badge">IM SYSTEM</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card im-accent"><div class="stat-label">在线用户</div><div class="stat-value">0</div><div class="stat-sub"><span class="pulse"><svg><use href="#icon-circle"/></svg></span> Netty WebSocket</div></div>
+        <div class="stat-card im-accent"><div class="stat-label">活跃会话</div><div class="stat-value">0</div><div class="stat-sub">单聊 + 群聊会话</div></div>
+        <div class="stat-card im-accent"><div class="stat-label">今日消息</div><div class="stat-value">0</div><div class="stat-sub">Protobuf 编码传输</div></div>
+        <div class="stat-card im-accent"><div class="stat-label">群组数量</div><div class="stat-value">0</div><div class="stat-sub">活跃群组</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-message"/></svg>会话管理</h3>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>会话ID</th><th>会话类型</th><th>会话名称</th><th>参与者</th><th>最后消息</th><th>更新时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td colspan="7"><div class="empty-state"><svg class="icon"><use href="#icon-message"/></svg><p>暂无活跃会话</p><p style="font-size:11px;margin-top:4px;">用户发起IM连接后将自动创建会话</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-mail"/></svg>消息追踪</h3>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>服务端MsgID</th><th>客户端MsgID</th><th>发送者</th><th>会话ID</th><th>消息类型</th><th>内容长度</th><th>发送时间</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#icon-mail"/></svg><p>暂无消息记录</p><p style="font-size:11px;margin-top:4px;">消息通过Kafka异步分发至接收者</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-group"/></svg>群组管理</h3>
+          <button class="btn btn-sm" style="background:var(--accent-im-dim);border-color:var(--accent-im-dim);color:var(--accent-im);"><svg class="icon-sm"><use href="#icon-plus"/></svg>创建群组</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>群组ID</th><th>群名称</th><th>群主</th><th>成员数</th><th>群公告</th><th>创建时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td colspan="7"><div class="empty-state"><svg class="icon"><use href="#icon-group"/></svg><p>暂无群组</p><p style="font-size:11px;margin-top:4px;">支持万人群组，消息逐人推送</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3><svg class="panel-icon"><use href="#icon-bell"/></svg>离线推送日志</h3>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>ID</th><th>消息ID</th><th>目标用户</th><th>推送方式</th><th>推送状态</th><th>重试次数</th><th>推送时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#icon-bell"/></svg><p>暂无推送记录</p><p style="font-size:11px;margin-top:4px;">用户离线时自动记录，支持AppPush/SMS/邮件重试</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+<div class="grain-overlay"></div>
+
+<script>
+(function() {
+  var navItems = document.querySelectorAll('.nav-item[data-module]');
+  var panels = document.querySelectorAll('.module-panel');
+  function switchModule(moduleId) {
+    panels.forEach(function(p) { p.classList.remove('active'); });
+    navItems.forEach(function(n) { n.classList.remove('active'); });
+    var target = document.getElementById('module-' + moduleId);
+    if (target) target.classList.add('active');
+    var navTarget = document.querySelector('.nav-item[data-module="' + moduleId + '"]');
+    if (navTarget) navTarget.classList.add('active');
+  }
+  navItems.forEach(function(item) {
+    item.addEventListener('click', function() {
+      var moduleId = this.getAttribute('data-module');
+      if (moduleId === 'monitor') return;
+      switchModule(moduleId);
+    });
+  });
+})();
+</script>
+</body>
+</html>

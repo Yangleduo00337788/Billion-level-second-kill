@@ -1,0 +1,197 @@
+syntax = "proto3";
+
+package com.seckill.im.proto;
+
+option java_package = "com.seckill.im.proto";
+option java_multiple_files = false;
+option java_outer_classname = "ImMessageProto";
+
+// ============================================================
+// 消息类型枚举
+// ============================================================
+enum MsgType {
+  UNKNOWN = 0;
+  TEXT = 1;
+  IMAGE = 2;
+  VOICE = 3;
+  VIDEO = 4;
+  FILE = 5;
+  SYSTEM = 6;
+}
+
+// ============================================================
+// 消息状态
+// ============================================================
+enum MsgStatus {
+  NORMAL = 0;
+  RECALLED = 1;
+}
+
+// ============================================================
+// 会话类型
+// ============================================================
+enum SessionType {
+  SINGLE = 0;
+  GROUP = 1;
+}
+
+// ============================================================
+// 上行消息（客户端 -> 服务端）
+// ============================================================
+message UpstreamMessage {
+  string client_msg_id = 1;          // 客户端生成的消息ID（幂等键）
+  int64 session_id = 2;              // 会话ID
+  int64 sender_id = 3;               // 发送者用户ID
+  int64 to_user_id = 4;              // 单聊：接收者ID；群聊：0
+  int64 group_id = 5;                // 群聊：群ID；单聊：0
+  MsgType msg_type = 6;              // 消息类型
+  string content = 7;                // 消息内容/多媒体JSON
+  string media_url = 8;              // 多媒体URL
+  int64 client_time = 9;             // 客户端发送时间戳(ms)
+  string device_id = 10;             // 设备ID（多端同步）
+  map<string, string> extra = 11;    // 扩展字段
+}
+
+// ============================================================
+// 下行消息（服务端 -> 客户端）
+// ============================================================
+message DownstreamMessage {
+  string client_msg_id = 1;          // 客户端消息ID
+  int64 server_msg_id = 2;           // 服务端消息ID（Snowflake）
+  int64 session_id = 3;              // 会话ID
+  SessionType session_type = 4;      // 会话类型
+  int64 sender_id = 5;               // 发送者用户ID
+  int64 to_user_id = 6;              // 接收者ID（单聊）
+  int64 group_id = 7;                // 群ID（群聊）
+  MsgType msg_type = 8;              // 消息类型
+  string content = 9;                // 消息内容
+  string media_url = 10;             // 多媒体URL
+  int64 seq = 11;                    // 会话内消息序号
+  MsgStatus status = 12;             // 消息状态
+  int64 server_time = 13;            // 服务端时间戳(ms)
+  string sender_name = 14;           // 发送者昵称
+  string sender_avatar = 15;         // 发送者头像
+  map<string, string> extra = 16;    // 扩展字段
+}
+
+// ============================================================
+// ACK 确认消息
+// ============================================================
+message MessageAck {
+  string client_msg_id = 1;          // 确认的客户端消息ID
+  int64 server_msg_id = 2;           // 服务端消息ID
+  int64 server_time = 3;             // 服务端接收时间
+  int32 code = 4;                    // 0-成功，其他-失败
+  string err_msg = 5;                // 错误信息
+}
+
+// ============================================================
+// 已读回执
+// ============================================================
+message ReadReceipt {
+  int64 session_id = 1;              // 会话ID
+  int64 user_id = 2;                 // 用户ID
+  int64 last_read_seq = 3;           // 已读到的最后一条seq
+  int64 read_time = 4;               // 阅读时间
+}
+
+// ============================================================
+// 消息撤回
+// ============================================================
+message RecallMessage {
+  int64 session_id = 1;              // 会话ID
+  int64 msg_id = 2;                  // 要撤回的服务端消息ID
+  int64 recall_user_id = 3;          // 撤回操作者
+  int64 recall_time = 4;             // 撤回时间
+}
+
+// ============================================================
+// 心跳消息
+// ============================================================
+message Heartbeat {
+  int64 user_id = 1;                 // 用户ID
+  string device_id = 2;              // 设备ID
+  int64 ping_time = 3;               // 客户端发送时间
+}
+
+message HeartbeatAck {
+  int64 pong_time = 1;               // 服务端时间
+  int32 unread_count = 2;            // 未读消息数
+}
+
+// ============================================================
+// 在线状态变更
+// ============================================================
+message OnlineStatusChange {
+  int64 user_id = 1;
+  int32 online_status = 2;           // 0-离线，1-在线
+  string device_type = 3;            // WEB/IOS/ANDROID/PC
+}
+
+// ============================================================
+// 登录信令
+// ============================================================
+message LoginRequest {
+  string token = 1;                  // JWT Token
+  string device_id = 2;
+  string device_type = 3;
+}
+
+message LoginResponse {
+  int32 code = 1;                    // 0-成功
+  int64 user_id = 2;
+  string user_name = 3;
+  string user_avatar = 4;
+  string msg = 5;
+}
+
+// ============================================================
+// 同步离线消息请求
+// ============================================================
+message SyncOfflineRequest {
+  int64 user_id = 1;
+  int64 last_seq_per_session = 2;    // 每个会话上次收到的最后seq，map结构用JSON
+}
+
+message SyncOfflineResponse {
+  repeated DownstreamMessage messages = 1;
+  int32 total = 2;
+  bool has_more = 3;
+}
+
+// ============================================================
+// 顶层消息封装（Protocol Buffers自描述）
+// ============================================================
+message WrapperMessage {
+  enum MessageType {
+    UPSTREAM_MESSAGE = 0;
+    DOWNSTREAM_MESSAGE = 1;
+    MESSAGE_ACK = 2;
+    READ_RECEIPT = 3;
+    RECALL_MESSAGE = 4;
+    HEARTBEAT = 5;
+    HEARTBEAT_ACK = 6;
+    LOGIN_REQUEST = 7;
+    LOGIN_RESPONSE = 8;
+    SYNC_OFFLINE_REQUEST = 9;
+    SYNC_OFFLINE_RESPONSE = 10;
+    ONLINE_STATUS_CHANGE = 11;
+  }
+
+  MessageType type = 1;
+
+  oneof payload {
+    UpstreamMessage upstream_message = 10;
+    DownstreamMessage downstream_message = 11;
+    MessageAck message_ack = 12;
+    ReadReceipt read_receipt = 13;
+    RecallMessage recall_message = 14;
+    Heartbeat heartbeat = 15;
+    HeartbeatAck heartbeat_ack = 16;
+    LoginRequest login_request = 17;
+    LoginResponse login_response = 18;
+    SyncOfflineRequest sync_offline_request = 19;
+    SyncOfflineResponse sync_offline_response = 20;
+    OnlineStatusChange online_status_change = 21;
+  }
+}
